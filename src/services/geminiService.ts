@@ -49,6 +49,16 @@ export class GeminiService {
   async generateImage(request: GenerationRequest): Promise<string[]> {
     try {
       const contents: any[] = [];
+      const config: Record<string, unknown> = {
+        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
+      };
+
+      if (request.temperature !== undefined) {
+        config.temperature = request.temperature;
+      }
+      if (request.seed !== undefined) {
+        config.seed = request.seed;
+      }
 
       // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
@@ -72,9 +82,7 @@ export class GeminiService {
       const response = await genAI.models.generateContent({
         model: request.model ?? DEFAULT_MODEL,
         contents,
-        config: {
-          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-        },
+        config,
       });
 
       const images: string[] = [];
@@ -96,6 +104,16 @@ export class GeminiService {
   async editImage(request: EditRequest): Promise<string[]> {
     try {
       const contents: any[] = [];
+      const config: Record<string, unknown> = {
+        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
+      };
+
+      if (request.temperature !== undefined) {
+        config.temperature = request.temperature;
+      }
+      if (request.seed !== undefined) {
+        config.seed = request.seed;
+      }
 
       // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
@@ -139,9 +157,7 @@ export class GeminiService {
       const response = await genAI.models.generateContent({
         model: request.model ?? DEFAULT_MODEL,
         contents,
-        config: {
-          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-        },
+        config,
       });
 
       const images: string[] = [];
@@ -241,15 +257,23 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
       }
 
       // For image generation, must specify responseModalities
+      const inlinedConfig: Record<string, unknown> = {
+        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
+      };
+
+      if (request.temperature !== undefined) {
+        inlinedConfig.temperature = request.temperature;
+      }
+      if (request.seed !== undefined) {
+        inlinedConfig.seed = request.seed;
+      }
+
       const inlinedRequests = [{
         contents: [{
           parts: contents,
           role: 'user' as const
         }],
-        config: {
-          responseModalities: ['TEXT', 'IMAGE'],
-          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any
-        }
+        config: inlinedConfig,
       }];
 
       const response = await genAI.batches.create({
