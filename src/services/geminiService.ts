@@ -4,6 +4,13 @@ import { GoogleGenAI } from '@google/genai';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'demo-key';
 const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
+export const MODEL_OPTIONS = [
+  { name: 'Nano Banana Pro', model: 'gemini-3-pro-image-preview' },
+  { name: 'Nano Banana', model: 'gemini-2.5-flash-image' },
+] as const;
+
+export const DEFAULT_MODEL = MODEL_OPTIONS[0].model;
+
 const safetySettings = [
   {
     category: "HARM_CATEGORY_HARASSMENT",
@@ -32,6 +39,7 @@ export interface GenerationRequest {
   referenceImages?: string[]; // base64 array
   temperature?: number;
   seed?: number;
+  model?: string;
 }
 
 export interface EditRequest {
@@ -41,6 +49,7 @@ export interface EditRequest {
   maskImage?: string; // base64
   temperature?: number;
   seed?: number;
+  model?: string;
 }
 
 export interface SegmentationRequest {
@@ -55,8 +64,8 @@ export class GeminiService {
 
       // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({ 
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}` 
+        contents.push({
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}`
         });
         // Add labeled reference images
         request.referenceImages.forEach((image, index) => {
@@ -73,7 +82,7 @@ export class GeminiService {
       }
 
       const response = await genAI.models.generateContent({
-        model: "gemini-3-pro-image-preview",
+        model: request.model ?? DEFAULT_MODEL,
         contents,
         config: {
           safetySettings: safetySettings,
@@ -102,8 +111,8 @@ export class GeminiService {
 
       // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({ 
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${this.buildEditPrompt(request)}` 
+        contents.push({
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${this.buildEditPrompt(request)}`
         });
       } else {
         contents.push({ text: this.buildEditPrompt(request) });
@@ -140,7 +149,7 @@ export class GeminiService {
       }
 
       const response = await genAI.models.generateContent({
-        model: "gemini-3-pro-image-preview",
+        model: request.model ?? DEFAULT_MODEL,
         contents,
         config: {
           safetySettings: safetySettings,
@@ -190,7 +199,7 @@ Only segment the specific object or region requested. The mask should be a binar
       ];
 
       const response = await genAI.models.generateContent({
-        model: "gemini-3-pro-image-preview",
+        model: DEFAULT_MODEL,
         contents: prompt,
         config: {
           safetySettings: safetySettings,
@@ -225,8 +234,8 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
 
       // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({ 
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}` 
+        contents.push({
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}`
         });
         // Add labeled reference images
         request.referenceImages.forEach((image, index) => {
@@ -255,7 +264,7 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
       }];
 
       const response = await genAI.batches.create({
-        model: 'gemini-3-pro-image-preview',
+        model: request.model ?? DEFAULT_MODEL,
         src: inlinedRequests,
         config: {
           displayName: `batch-${Date.now()}`,

@@ -9,7 +9,7 @@ import { blobToBase64, generateId } from '../utils/imageUtils';
 import { PromptHints } from './PromptHints';
 import { cn } from '../utils/cn';
 import { CacheService } from '../services/cacheService';
-import { geminiService } from '../services/geminiService';
+import { geminiService, MODEL_OPTIONS } from '../services/geminiService';
 import { BatchQueueRequest } from '../types';
 
 export const PromptComposer: React.FC = () => {
@@ -22,6 +22,8 @@ export const PromptComposer: React.FC = () => {
     setTemperature,
     seed,
     setSeed,
+    selectedModel,
+    setSelectedModel,
     isGenerating,
     uploadedImages,
     addUploadedImage,
@@ -92,7 +94,8 @@ export const PromptComposer: React.FC = () => {
         prompt: currentPrompt,
         referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         temperature,
-        seed: seed || undefined
+        seed: seed || undefined,
+        model: selectedModel
       });
 
       // Update with batch job name
@@ -353,16 +356,8 @@ export const PromptComposer: React.FC = () => {
         {/* Advanced Controls */}
         <div>
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors duration-200"
-          >
-            {showAdvanced ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
-            {showAdvanced ? 'Hide' : 'Show'} Advanced Controls
-          </button>
-
-          <button
             onClick={() => setShowClearConfirm(!showClearConfirm)}
-            className="flex items-center text-sm text-gray-400 hover:text-red-400 transition-colors duration-200 mt-2"
+            className="flex items-center text-sm text-gray-400 hover:text-red-400 transition-colors duration-200 mb-4"
           >
             <RotateCcw className="h-4 w-4 mr-2" />
             Clear Session
@@ -394,8 +389,32 @@ export const PromptComposer: React.FC = () => {
             </div>
           )}
 
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors duration-200"
+          >
+            {showAdvanced ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+            {showAdvanced ? 'Hide' : 'Show'} Advanced Controls
+          </button>
+
           {showAdvanced && (
             <div className="mt-4 space-y-4">
+              {/* Model */}
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block">
+                  Model
+                </label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
+                >
+                  {MODEL_OPTIONS.map((opt) => (
+                    <option key={opt.model} value={opt.model}>{opt.name}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Temperature */}
               <div>
                 <label className="text-xs text-gray-400 mb-2 block">
