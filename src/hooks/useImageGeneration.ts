@@ -5,10 +5,12 @@ import { generateId } from '../utils/imageUtils';
 import { Generation, Edit, Asset } from '../types';
 
 export const useImageGeneration = () => {
-  const { addGeneration, setIsGenerating, setCanvasImage, setCurrentProject, currentProject, selectedModel, safetySettings } = useAppStore();
+  const { addGeneration, setIsGenerating, setCanvasImage, setCurrentProject, currentProject, selectedModel } = useAppStore();
 
   const generateMutation = useMutation({
     mutationFn: async (request: GenerationRequest) => {
+      // Get current safety settings at mutation time to avoid stale closure
+      const { safetySettings } = useAppStore.getState();
       const images = await geminiService.generateImage({ 
         ...request, 
         model: request.model ?? selectedModel,
@@ -104,12 +106,13 @@ export const useImageEditing = () => {
     currentProject,
     seed,
     temperature,
-    selectedModel,
-    safetySettings
+    selectedModel
   } = useAppStore();
 
   const editMutation = useMutation({
     mutationFn: async (instruction: string) => {
+      // Get current safety settings at mutation time to avoid stale closure
+      const { safetySettings } = useAppStore.getState();
       // Always use canvas image as primary target if available, otherwise use first uploaded image
       const sourceImage = canvasImage || uploadedImages[0];
       if (!sourceImage) throw new Error('No image to edit');

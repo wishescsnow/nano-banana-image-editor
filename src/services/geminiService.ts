@@ -246,10 +246,10 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
           parts: contents,
           role: 'user' as const
         }],
-        generationConfig: {
-          responseModalities: ['TEXT', 'IMAGE']
-        },
-        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any
+        config: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any
+        }
       }];
 
       const response = await genAI.batches.create({
