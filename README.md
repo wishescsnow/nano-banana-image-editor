@@ -19,7 +19,7 @@ A production-ready React + TypeScript application for delightful image generatio
 ### 🎨 **AI-Powered Creation**
 - **Text-to-Image Generation** - Create stunning images from descriptive prompts
 - **Live Quality Tips** - Real-time feedback to improve your prompts
-- **Reference Image Support** - Use up to 2 reference images to guide generation
+- **Reference Image Support** - Use up to 10 reference images to guide generation
 - **Advanced Controls** - Fine-tune creativity levels and use custom seeds
 
 ### ✏️ **Intelligent Editing**
@@ -86,7 +86,7 @@ A production-ready React + TypeScript application for delightful image generatio
 ### Creating Images
 1. Select **Generate** mode
 2. Write a detailed prompt describing your desired image
-3. Optionally upload reference images (max 2)
+3. Optionally upload reference images (max 10)
 4. Adjust creativity settings if needed
 5. Click **Generate** or press `Cmd/Ctrl + Enter`
 

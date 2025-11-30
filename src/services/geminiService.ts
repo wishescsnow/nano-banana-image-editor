@@ -51,11 +51,16 @@ export interface SegmentationRequest {
 export class GeminiService {
   async generateImage(request: GenerationRequest): Promise<string[]> {
     try {
-      const contents: any[] = [{ text: request.prompt }];
+      const contents: any[] = [];
 
-      // Add reference images if provided
+      // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        request.referenceImages.forEach(image => {
+        contents.push({ 
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}` 
+        });
+        // Add labeled reference images
+        request.referenceImages.forEach((image, index) => {
+          contents.push({ text: `reference-${index + 1}:` });
           contents.push({
             inlineData: {
               mimeType: "image/png",
@@ -63,6 +68,8 @@ export class GeminiService {
             },
           });
         });
+      } else {
+        contents.push({ text: request.prompt });
       }
 
       const response = await genAI.models.generateContent({
@@ -91,19 +98,29 @@ export class GeminiService {
 
   async editImage(request: EditRequest): Promise<string[]> {
     try {
-      const contents = [
-        { text: this.buildEditPrompt(request) },
-        {
-          inlineData: {
-            mimeType: "image/png",
-            data: request.originalImage,
-          },
-        },
-      ];
+      const contents: any[] = [];
 
-      // Add reference images if provided
+      // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        request.referenceImages.forEach(image => {
+        contents.push({ 
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${this.buildEditPrompt(request)}` 
+        });
+      } else {
+        contents.push({ text: this.buildEditPrompt(request) });
+      }
+
+      // Add original image to edit
+      contents.push({
+        inlineData: {
+          mimeType: "image/png",
+          data: request.originalImage,
+        },
+      });
+
+      // Add labeled reference images if provided
+      if (request.referenceImages && request.referenceImages.length > 0) {
+        request.referenceImages.forEach((image, index) => {
+          contents.push({ text: `reference-${index + 1}:` });
           contents.push({
             inlineData: {
               mimeType: "image/png",
@@ -204,10 +221,16 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
   // Batch API methods
   async submitBatchRequest(request: GenerationRequest): Promise<{ batchName: string }> {
     try {
-      const contents: any[] = [{ text: request.prompt }];
+      const contents: any[] = [];
 
+      // Add prompt with reference context if applicable
       if (request.referenceImages && request.referenceImages.length > 0) {
-        request.referenceImages.forEach(image => {
+        contents.push({ 
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}` 
+        });
+        // Add labeled reference images
+        request.referenceImages.forEach((image, index) => {
+          contents.push({ text: `reference-${index + 1}:` });
           contents.push({
             inlineData: {
               mimeType: "image/png",
@@ -215,6 +238,8 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
             },
           });
         });
+      } else {
+        contents.push({ text: request.prompt });
       }
 
       // For image generation, must specify responseModalities
