@@ -101,7 +101,11 @@ export const PromptComposer: React.FC = () => {
   const handleQueueForBatch = async () => {
     if (!currentPrompt.trim()) return;
 
-    const referenceImages = uploadedImages
+    // Use the correct image set based on mode
+    const isEditMode = selectedTool === 'edit' || selectedTool === 'mask';
+    const imageSource = isEditMode ? editReferenceImages : uploadedImages;
+    
+    const referenceImages = imageSource
       .filter(img => img.includes('base64,'))
       .map(img => img.split('base64,')[1]);
 
