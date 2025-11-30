@@ -1,5 +1,5 @@
 import { get, set, del, keys } from 'idb-keyval';
-import { Project, Generation, Asset } from '../types';
+import { Project, Generation, Asset, BatchQueueRequest } from '../types';
 
 const CACHE_PREFIX = 'nano-banana';
 const CACHE_VERSION = '1.0';
@@ -67,5 +67,39 @@ export class CacheService {
         }
       }
     }
+  }
+
+  // Batch Queue Request methods
+  static async saveQueuedRequest(request: BatchQueueRequest): Promise<void> {
+    await set(this.getKey('queue', request.id), request);
+  }
+
+  static async getQueuedRequest(id: string): Promise<BatchQueueRequest | null> {
+    return (await get(this.getKey('queue', id))) || null;
+  }
+
+  static async getAllQueuedRequests(): Promise<BatchQueueRequest[]> {
+    const allKeys = await keys();
+    const queueKeys = allKeys.filter(key =>
+      typeof key === 'string' && key.includes(`${CACHE_PREFIX}-${CACHE_VERSION}-queue-`)
+    );
+
+    const requests = await Promise.all(
+      queueKeys.map(key => get(key as string))
+    );
+
+    return (requests.filter(Boolean) as BatchQueueRequest[])
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  static async updateQueuedRequest(id: string, updates: Partial<BatchQueueRequest>): Promise<void> {
+    const existing = await this.getQueuedRequest(id);
+    if (existing) {
+      await set(this.getKey('queue', id), { ...existing, ...updates });
+    }
+  }
+
+  static async deleteQueuedRequest(id: string): Promise<void> {
+    await del(this.getKey('queue', id));
   }
 }

@@ -65,3 +65,21 @@ export interface PromptHint {
   text: string;
   example: string;
 }
+
+export interface BatchQueueRequest {
+  id: string;
+  type: 'generate' | 'edit';
+  prompt: string;
+  referenceImages?: string[];
+  originalImage?: string;
+  maskImage?: string;
+  temperature?: number;
+  seed?: number;
+  batchJobName?: string; // Gemini batch job name after submission
+  status: 'pending' | 'submitted' | 'succeeded' | 'failed';
+  resultImages?: string[];
+  createdAt: number;
+  submittedAt?: number;
+  completedAt?: number;
+  error?: string;
+}

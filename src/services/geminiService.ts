@@ -200,6 +200,117 @@ Maintain the original image's lighting, perspective, and overall composition. Ma
 
 Preserve image quality and ensure the edit looks professional and realistic.`;
   }
+
+  // Batch API methods
+  async submitBatchRequest(request: GenerationRequest): Promise<{ batchName: string }> {
+    try {
+      const contents: any[] = [{ text: request.prompt }];
+
+      if (request.referenceImages && request.referenceImages.length > 0) {
+        request.referenceImages.forEach(image => {
+          contents.push({
+            inlineData: {
+              mimeType: "image/png",
+              data: image,
+            },
+          });
+        });
+      }
+
+      // For image generation, must specify responseModalities
+      const inlinedRequests = [{
+        contents: [{
+          parts: contents,
+          role: 'user' as const
+        }],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE']
+        },
+        safetySettings: safetySettings
+      }];
+
+      const response = await genAI.batches.create({
+        model: 'gemini-3-pro-image-preview',
+        src: inlinedRequests,
+        config: {
+          displayName: `batch-${Date.now()}`,
+        }
+      });
+
+      console.log('Batch job created:', response);
+      return { batchName: response.name || '' };
+    } catch (error) {
+      console.error('Error submitting batch request:', error);
+      throw new Error('Failed to submit batch request. Please try again.');
+    }
+  }
+
+  async getBatchStatus(batchName: string): Promise<{
+    state: string;
+    destFileName?: string;
+  }> {
+    try {
+      const response = await genAI.batches.get({ name: batchName });
+      return {
+        state: response.state || 'UNKNOWN',
+        destFileName: response.dest?.fileName
+      };
+    } catch (error) {
+      console.error('Error getting batch status:', error);
+      throw new Error('Failed to get batch status.');
+    }
+  }
+
+  async getBatchResults(batchName: string): Promise<string[]> {
+    try {
+      const batchJob = await genAI.batches.get({ name: batchName });
+      console.log('Batch job result:', JSON.stringify(batchJob, null, 2));
+
+      if (batchJob.state !== 'JOB_STATE_SUCCEEDED') {
+        throw new Error(`Batch job not completed. Current state: ${batchJob.state}`);
+      }
+
+      const images: string[] = [];
+      const dest = batchJob.dest as any;
+
+      // Check for inlinedResponses (inline request results)
+      if (dest?.inlinedResponses && dest.inlinedResponses.length > 0) {
+        console.log('Found inlinedResponses:', dest.inlinedResponses.length);
+        for (const item of dest.inlinedResponses) {
+          const response = item.response;
+          if (response?.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData?.data) {
+                console.log('Found image data, length:', part.inlineData.data.length);
+                images.push(part.inlineData.data);
+              }
+            }
+          }
+        }
+      }
+
+      // Also check top-level responses property (alternative structure)
+      if (dest?.responses && dest.responses.length > 0) {
+        console.log('Found responses:', dest.responses.length);
+        for (const response of dest.responses) {
+          if (response?.candidates?.[0]?.content?.parts) {
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData?.data) {
+                console.log('Found image data in responses, length:', part.inlineData.data.length);
+                images.push(part.inlineData.data);
+              }
+            }
+          }
+        }
+      }
+
+      console.log('Total images found:', images.length);
+      return images;
+    } catch (error) {
+      console.error('Error getting batch results:', error);
+      throw new Error('Failed to get batch results.');
+    }
+  }
 }
 
 export const geminiService = new GeminiService();

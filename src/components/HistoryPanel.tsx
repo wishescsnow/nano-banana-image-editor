@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from './ui/Button';
-import { History, Download, Image as ImageIcon, Layers } from 'lucide-react';
+import { History, Download, Image as ImageIcon, Layers, Clock } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ImagePreviewModal } from './ImagePreviewModal';
+import { QueuedRequestsPanel } from './QueuedRequestsPanel';
+import { CacheService } from '../services/cacheService';
+
+type TabType = 'history' | 'queue';
 
 export const HistoryPanel: React.FC = () => {
   const {
@@ -18,6 +22,9 @@ export const HistoryPanel: React.FC = () => {
     setCanvasImage,
     selectedTool
   } = useAppStore();
+
+  const [activeTab, setActiveTab] = useState<TabType>('history');
+  const [queueCount, setQueueCount] = useState(0);
 
   const [previewModal, setPreviewModal] = React.useState<{
     open: boolean;
@@ -36,6 +43,19 @@ export const HistoryPanel: React.FC = () => {
 
   // Get current image dimensions
   const [imageDimensions, setImageDimensions] = React.useState<{ width: number; height: number } | null>(null);
+
+  // Load queue count
+  useEffect(() => {
+    const loadQueueCount = async () => {
+      const requests = await CacheService.getAllQueuedRequests();
+      setQueueCount(requests.length);
+    };
+    loadQueueCount();
+    
+    // Refresh count periodically
+    const interval = setInterval(loadQueueCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
   
   React.useEffect(() => {
     if (canvasImage) {
@@ -69,22 +89,58 @@ export const HistoryPanel: React.FC = () => {
 
   return (
     <div className="w-80 bg-gray-950 border-l border-gray-800 p-6 flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2">
-          <History className="h-5 w-5 text-gray-400" />
-          <h3 className="text-sm font-medium text-gray-300">History & Variants</h3>
-        </div>
+      {/* Header with Close */}
+      <div className="flex items-center justify-end mb-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShowHistory(!showHistory)}
           className="h-6 w-6"
-          title="Hide History Panel"
+          title="Hide Panel"
         >
           ×
         </Button>
       </div>
+
+      {/* Tabs */}
+      <div className="flex space-x-1 mb-6 bg-gray-900 rounded-lg p-1">
+        <button
+          onClick={() => setActiveTab('history')}
+          className={cn(
+            'flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200',
+            activeTab === 'history'
+              ? 'bg-gray-800 text-gray-100'
+              : 'text-gray-400 hover:text-gray-300'
+          )}
+        >
+          <History className="h-4 w-4" />
+          <span>History</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('queue')}
+          className={cn(
+            'flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 relative',
+            activeTab === 'queue'
+              ? 'bg-gray-800 text-gray-100'
+              : 'text-gray-400 hover:text-gray-300'
+          )}
+        >
+          <Clock className="h-4 w-4" />
+          <span>Queue</span>
+          {queueCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-yellow-400 text-gray-900 text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+              {queueCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Queue Tab Content */}
+      {activeTab === 'queue' && <QueuedRequestsPanel />}
+
+      {/* History Tab Content */}
+      {activeTab === 'history' && (
+        <>
 
       {/* Variants Grid */}
       <div className="mb-6 flex-shrink-0">
@@ -394,6 +450,8 @@ export const HistoryPanel: React.FC = () => {
           Download
         </Button>
       </div>
+      </>
+      )}
       
       {/* Image Preview Modal */}
       <ImagePreviewModal

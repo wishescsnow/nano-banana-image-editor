@@ -1,12 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { Textarea } from './ui/Textarea';
 import { Button } from './ui/Button';
+import { DropdownButton } from './ui/DropdownButton';
 import { useAppStore } from '../store/useAppStore';
 import { useImageGeneration, useImageEditing } from '../hooks/useImageGeneration';
-import { Upload, Wand2, Edit3, MousePointer, HelpCircle, Menu, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
-import { blobToBase64 } from '../utils/imageUtils';
+import { Upload, Wand2, Edit3, MousePointer, HelpCircle, Menu, ChevronDown, ChevronRight, RotateCcw, Clock } from 'lucide-react';
+import { blobToBase64, generateId } from '../utils/imageUtils';
 import { PromptHints } from './PromptHints';
 import { cn } from '../utils/cn';
+import { CacheService } from '../services/cacheService';
+import { geminiService } from '../services/geminiService';
+import { BatchQueueRequest } from '../types';
 
 export const PromptComposer: React.FC = () => {
   const {
@@ -57,6 +61,52 @@ export const PromptComposer: React.FC = () => {
       });
     } else if (selectedTool === 'edit' || selectedTool === 'mask') {
       edit(currentPrompt);
+    }
+  };
+
+  const handleQueueForBatch = async () => {
+    if (!currentPrompt.trim()) return;
+
+    const referenceImages = uploadedImages
+      .filter(img => img.includes('base64,'))
+      .map(img => img.split('base64,')[1]);
+
+    const queueRequest: BatchQueueRequest = {
+      id: generateId(),
+      type: selectedTool === 'generate' ? 'generate' : 'edit',
+      prompt: currentPrompt,
+      referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+      originalImage: canvasImage?.includes('base64,') ? canvasImage.split('base64,')[1] : undefined,
+      temperature,
+      seed: seed || undefined,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    // Save to IndexedDB
+    await CacheService.saveQueuedRequest(queueRequest);
+
+    // Submit to batch API
+    try {
+      const { batchName } = await geminiService.submitBatchRequest({
+        prompt: currentPrompt,
+        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+        temperature,
+        seed: seed || undefined
+      });
+
+      // Update with batch job name
+      await CacheService.updateQueuedRequest(queueRequest.id, {
+        status: 'submitted',
+        batchJobName: batchName,
+        submittedAt: Date.now()
+      });
+    } catch (error) {
+      console.error('Failed to submit batch request:', error);
+      await CacheService.updateQueuedRequest(queueRequest.id, {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   };
 
@@ -274,11 +324,18 @@ export const PromptComposer: React.FC = () => {
       </div>
 
 
-      {/* Generate Button */}
-      <Button
+      {/* Generate Button with Batch Queue Option */}
+      <DropdownButton
         onClick={handleGenerate}
         disabled={isGenerating || !currentPrompt.trim()}
-        className="w-full h-14 text-base font-medium"
+        options={[
+          {
+            id: 'queue-batch',
+            label: 'Queue for Batch (50% cost)',
+            icon: <Clock className="h-4 w-4" />,
+            onClick: handleQueueForBatch
+          }
+        ]}
       >
         {isGenerating ? (
           <>
@@ -291,7 +348,7 @@ export const PromptComposer: React.FC = () => {
             {selectedTool === 'generate' ? 'Generate' : 'Apply Edit'}
           </>
         )}
-      </Button>
+      </DropdownButton>
 
       {/* Advanced Controls */}
       <div>

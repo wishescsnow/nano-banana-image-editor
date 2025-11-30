@@ -40,6 +40,13 @@ A production-ready React + TypeScript application for delightful image generatio
 - **Full Undo/Redo** - Complete generation tree with branching history
 - **Asset Management** - Organized storage of all generated content
 
+### ⏱️ **Batch API Queue (50% Cost Savings)**
+- **Queue for Batch** - Submit requests to Gemini Batch API at half the cost
+- **Background Processing** - Requests process asynchronously (up to 24hr turnaround)
+- **Persistent Queue** - Queued requests saved to IndexedDB, survive page refreshes
+- **Status Tracking** - Monitor pending, processing, completed, and failed jobs
+- **Auto-Load Results** - Click completed requests to load images directly to canvas
+
 ### 🔒 **Enterprise Features**
 - **SynthID Watermarking** - Built-in AI provenance with invisible watermarks
 - **Offline Caching** - IndexedDB storage for offline asset access
@@ -96,6 +103,14 @@ A production-ready React + TypeScript application for delightful image generatio
 - Download high-quality PNG outputs
 - Use keyboard shortcuts for efficient navigation
 
+### Using Batch Queue (50% Savings)
+1. Write your prompt as usual
+2. Click the **dropdown arrow** next to the Generate button
+3. Select **"Queue for Batch (50% cost)"**
+4. Switch to the **Queue** tab in the right panel to monitor progress
+5. Click **completed requests** to load results to the canvas
+6. Use the **refresh button** to check status of pending jobs
+
 ## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -122,10 +137,11 @@ A production-ready React + TypeScript application for delightful image generatio
 ```
 src/
 ├── components/          # React components
-│   ├── ui/             # Reusable UI components (Button, Input, etc.)
+│   ├── ui/             # Reusable UI components (Button, Input, DropdownButton, etc.)
 │   ├── PromptComposer.tsx  # Prompt input and tool selection
 │   ├── ImageCanvas.tsx     # Interactive canvas with Konva
-│   ├── HistoryPanel.tsx    # Generation history and variants
+│   ├── HistoryPanel.tsx    # Tabbed panel for history and queue
+│   ├── QueuedRequestsPanel.tsx # Batch API queue management
 │   ├── Header.tsx          # App header and navigation
 │   └── InfoModal.tsx       # About modal with links
 ├── services/           # External service integrations
@@ -205,6 +221,7 @@ We welcome contributions! Please:
 - **Community**: [Vibe Coding is Life Skool](https://www.skool.com/vibe-coding-is-life/about?ref=456537abaf37491cbcc6976f3c26af41)
 - **Google AI Studio**: [Get your API key](https://aistudio.google.com/)
 - **Gemini API Docs**: [Official Documentation](https://ai.google.dev/gemini-api/docs)
+- **Batch API Docs**: [50% Cost Savings](https://ai.google.dev/gemini-api/docs/batch-api)
 
 ## 🐛 Known Issues & Limitations
 
@@ -215,6 +232,7 @@ We welcome contributions! Please:
 
 ## 🎯 Suggested Updates
 
+- [x] Batch API integration for 50% cost savings
 - [ ] Backend API proxy implementation
 - [ ] User authentication and project sharing
 - [ ] Advanced brush tools and selection methods
@@ -223,4 +241,4 @@ We welcome contributions! Please:
 
 ---
 
-**Built by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 3.0 Pro Image** | **Made with Bolt.new**
+**Original Fork & Built by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 2.5 Flash Image** | **Made with Bolt.new** | **Enhancement to support Gemini 3.0 Pro Image with Batch API capabilities by [wishescsnow](https://github.com/wishescsnow).**
