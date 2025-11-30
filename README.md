@@ -8,7 +8,7 @@ Join the [Vibe Coding is Life Skool Community](https://www.skool.com/vibe-coding
 
 **Professional AI Image Generation & Conversational Editing Platform**
 
-A production-ready React + TypeScript application for delightful image generation and conversational, region-aware revisions using Google's Gemini 2.5 Flash Image model. Built with modern web technologies and designed for both creators and developers.
+A production-ready React + TypeScript application for delightful image generation and conversational, region-aware revisions using Google's Gemini 3.0 Pro Image model. Built with modern web technologies and designed for both creators and developers.
 
 [![Nano Banana Image Editor](https://getsmartgpt.com/nano-banana-editor.jpg)](https://nanobananaeditor.dev)
 
@@ -114,7 +114,7 @@ A production-ready React + TypeScript application for delightful image generatio
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **State Management**: Zustand for app state, React Query for server state  
 - **Canvas**: Konva.js for interactive image display and mask overlays
-- **AI Integration**: Google Generative AI SDK (Gemini 2.5 Flash Image)
+- **AI Integration**: Google Generative AI SDK (Gemini 3.0 Pro Image)
 - **Storage**: IndexedDB for offline asset caching
 - **Build Tool**: Vite for fast development and optimized builds
 
@@ -152,7 +152,7 @@ VITE_GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### Model Configuration
-- **Model**: `gemini-2.5-flash-image-preview`
+- **Model**: `gemini-3-pro-image-preview`
 - **Output Format**: 1024×1024 PNG with SynthID watermarks
 - **Input Formats**: PNG, JPEG, WebP
 - **Temperature Range**: 0-1 (0 = deterministic, 1 = creative)
@@ -223,4 +223,4 @@ We welcome contributions! Please:
 
 ---
 
-**Built by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 2.5 Flash Image** | **Made with Bolt.new**
+**Built by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 3.0 Pro Image** | **Made with Bolt.new**

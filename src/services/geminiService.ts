@@ -4,6 +4,29 @@ import { GoogleGenAI } from '@google/genai';
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'demo-key';
 const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
+const safetySettings = [
+  {
+    category: "HARM_CATEGORY_HARASSMENT",
+    threshold: "BLOCK_LOW_AND_ABOVE",
+  },
+  {
+    category: "HARM_CATEGORY_HATE_SPEECH",
+    threshold: "BLOCK_LOW_AND_ABOVE",
+  },
+  {
+    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+    threshold: "BLOCK_LOW_AND_ABOVE",
+  },
+  {
+    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+    threshold: "BLOCK_LOW_AND_ABOVE",
+  },
+  {
+    category: "HARM_CATEGORY_CIVIC_INTEGRITY",
+    threshold: "BLOCK_LOW_AND_ABOVE",
+  },
+];
+
 export interface GenerationRequest {
   prompt: string;
   referenceImages?: string[]; // base64 array
@@ -29,7 +52,7 @@ export class GeminiService {
   async generateImage(request: GenerationRequest): Promise<string[]> {
     try {
       const contents: any[] = [{ text: request.prompt }];
-      
+
       // Add reference images if provided
       if (request.referenceImages && request.referenceImages.length > 0) {
         request.referenceImages.forEach(image => {
@@ -43,11 +66,15 @@ export class GeminiService {
       }
 
       const response = await genAI.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
+        model: "gemini-3-pro-image-preview",
         contents,
+        config: {
+          safetySettings: safetySettings,
+        },
       });
 
       const images: string[] = [];
+      console.log('response', response);
 
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
@@ -96,11 +123,15 @@ export class GeminiService {
       }
 
       const response = await genAI.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
+        model: "gemini-3-pro-image-preview",
         contents,
+        config: {
+          safetySettings: safetySettings,
+        },
       });
 
       const images: string[] = [];
+      console.log('response', response);
 
       for (const part of response.candidates[0].content.parts) {
         if (part.inlineData) {
@@ -118,7 +149,8 @@ export class GeminiService {
   async segmentImage(request: SegmentationRequest): Promise<any> {
     try {
       const prompt = [
-        { text: `Analyze this image and create a segmentation mask for: ${request.query}
+        {
+          text: `Analyze this image and create a segmentation mask for: ${request.query}
 
 Return a JSON object with this exact structure:
 {
@@ -141,9 +173,13 @@ Only segment the specific object or region requested. The mask should be a binar
       ];
 
       const response = await genAI.models.generateContent({
-        model: "gemini-2.5-flash-image-preview",
+        model: "gemini-3-pro-image-preview",
         contents: prompt,
+        config: {
+          safetySettings: safetySettings,
+        },
       });
+      console.log('response', response);
 
       const responseText = response.candidates[0].content.parts[0].text;
       return JSON.parse(responseText);
@@ -154,7 +190,7 @@ Only segment the specific object or region requested. The mask should be a binar
   }
 
   private buildEditPrompt(request: EditRequest): string {
-    const maskInstruction = request.maskImage 
+    const maskInstruction = request.maskImage
       ? "\n\nIMPORTANT: Apply changes ONLY where the mask image shows white pixels (value 255). Leave all other areas completely unchanged. Respect the mask boundaries precisely and maintain seamless blending at the edges."
       : "";
 

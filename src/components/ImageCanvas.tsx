@@ -176,20 +176,20 @@ export const ImageCanvas: React.FC = () => {
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="p-3 border-b border-gray-800 bg-gray-950">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           {/* Left side - Zoom controls */}
           <div className="flex items-center space-x-2">
             <Button variant="outline" size="sm" onClick={() => handleZoom(-0.1)}>
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="w-4 h-4" />
             </Button>
             <span className="text-sm text-gray-400 min-w-[60px] text-center">
               {Math.round(canvasZoom * 100)}%
             </span>
             <Button variant="outline" size="sm" onClick={() => handleZoom(0.1)}>
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="w-4 h-4" />
             </Button>
           </div>
 
@@ -197,7 +197,7 @@ export const ImageCanvas: React.FC = () => {
           <div className="flex items-center space-x-2">
             {selectedTool === 'mask' && (
               <>
-                <div className="flex items-center space-x-2 mr-2">
+                <div className="flex items-center mr-2 space-x-2">
                   <span className="text-xs text-gray-400">Brush:</span>
                   <input
                     type="range"
@@ -207,7 +207,7 @@ export const ImageCanvas: React.FC = () => {
                     onChange={(e) => setBrushSize(parseInt(e.target.value))}
                     className="w-16 h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <span className="text-xs text-gray-400 w-6">{brushSize}</span>
+                  <span className="w-6 text-xs text-gray-400">{brushSize}</span>
                 </div>
                 <Button
                   variant="outline"
@@ -215,7 +215,7 @@ export const ImageCanvas: React.FC = () => {
                   onClick={clearBrushStrokes}
                   disabled={brushStrokes.length === 0}
                 >
-                  <Eraser className="h-4 w-4" />
+                  <Eraser className="w-4 h-4" />
                 </Button>
               </>
             )}
@@ -226,13 +226,13 @@ export const ImageCanvas: React.FC = () => {
               onClick={() => setShowMasks(!showMasks)}
               className={cn(showMasks && 'bg-yellow-400/10 border-yellow-400/50')}
             >
-              {showMasks ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              <span className="hidden sm:inline ml-2">Masks</span>
+              {showMasks ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              <span className="hidden ml-2 sm:inline">Masks</span>
             </Button>
             
             {canvasImage && (
               <Button variant="secondary" size="sm" onClick={handleDownload}>
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="mr-2 w-4 h-4" />
                 <span className="hidden sm:inline">Download</span>
               </Button>
             )}
@@ -243,16 +243,16 @@ export const ImageCanvas: React.FC = () => {
       {/* Canvas Area */}
       <div 
         id="canvas-container" 
-        className="flex-1 relative overflow-hidden bg-gray-800"
+        className="overflow-hidden relative flex-1 bg-gray-800"
       >
         {!image && !isGenerating && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex absolute inset-0 justify-center items-center">
             <div className="text-center">
-              <div className="text-6xl mb-4">🍌</div>
-              <h2 className="text-xl font-medium text-gray-300 mb-2">
+              <div className="mb-4 text-6xl">🍌</div>
+              <h2 className="mb-2 text-xl font-medium text-gray-300">
                 Welcome to Nano Banana Framework
               </h2>
-              <p className="text-gray-500 max-w-md">
+              <p className="max-w-md text-gray-500">
                 {selectedTool === 'generate' 
                   ? 'Start by describing what you want to create in the prompt box'
                   : 'Upload an image to begin editing'
@@ -263,9 +263,9 @@ export const ImageCanvas: React.FC = () => {
         )}
 
         {isGenerating && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
+          <div className="flex absolute inset-0 justify-center items-center bg-gray-900/50">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mb-4" />
+              <div className="mb-4 w-12 h-12 rounded-full border-b-2 border-yellow-400 animate-spin" />
               <p className="text-gray-300">Creating your image...</p>
             </div>
           </div>
@@ -340,7 +340,7 @@ export const ImageCanvas: React.FC = () => {
 
       {/* Status Bar */}
       <div className="p-3 border-t border-gray-800 bg-gray-950">
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex justify-between items-center text-xs text-gray-500">
           <div className="flex items-center space-x-4">
             {brushStrokes.length > 0 && (
               <span className="text-yellow-400">{brushStrokes.length} brush stroke{brushStrokes.length !== 1 ? 's' : ''}</span>
@@ -354,14 +354,14 @@ export const ImageCanvas: React.FC = () => {
                 href="https://www.reinventing.ai/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-yellow-400 hover:text-yellow-300 transition-colors ml-1"
+                className="ml-1 text-yellow-400 transition-colors hover:text-yellow-300"
               >
                 Reinventing.AI Solutions
               </a>
             </span>
-            <span className="text-gray-600 hidden md:inline">•</span>
-            <span className="text-yellow-400 hidden md:inline">⚡</span>
-            <span className="hidden md:inline">Powered by Gemini 2.5 Flash Image</span>
+            <span className="hidden text-gray-600 md:inline">•</span>
+            <span className="hidden text-yellow-400 md:inline">⚡</span>
+            <span className="hidden md:inline">Powered by Gemini 3.0 Pro Image</span>
           </div>
         </div>
       </div>
