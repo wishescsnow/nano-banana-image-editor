@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Project, Generation, Edit, SegmentationMask, BrushStroke } from '../types';
+import { Project, Generation, Edit, SegmentationMask, BrushStroke, SafetySetting, HarmCategory } from '../types';
+
+const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [
+  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_LOW_AND_ABOVE' },
+];
 
 interface AppState {
   // Current project
@@ -26,6 +34,7 @@ interface AppState {
   temperature: number;
   seed: number | null;
   selectedModel: string;
+  safetySettings: SafetySetting[];
 
   // History and variants
   selectedGenerationId: string | null;
@@ -62,6 +71,8 @@ interface AppState {
   setTemperature: (temp: number) => void;
   setSeed: (seed: number | null) => void;
   setSelectedModel: (model: string) => void;
+  setSafetyThreshold: (category: HarmCategory, threshold: SafetySetting['threshold']) => void;
+  resetSafetySettings: () => void;
 
   addGeneration: (generation: Generation) => void;
   addEdit: (edit: Edit) => void;
@@ -95,6 +106,7 @@ export const useAppStore = create<AppState>()(
       temperature: 0.7,
       seed: null,
       selectedModel: 'gemini-3-pro-image-preview',
+      safetySettings: DEFAULT_SAFETY_SETTINGS,
 
       selectedGenerationId: null,
       selectedEditId: null,
@@ -138,6 +150,12 @@ export const useAppStore = create<AppState>()(
       setTemperature: (temp) => set({ temperature: temp }),
       setSeed: (seed) => set({ seed: seed }),
       setSelectedModel: (model) => set({ selectedModel: model }),
+      setSafetyThreshold: (category, threshold) => set((state) => ({
+        safetySettings: state.safetySettings.map((s) =>
+          s.category === category ? { ...s, threshold } : s
+        )
+      })),
+      resetSafetySettings: () => set({ safetySettings: DEFAULT_SAFETY_SETTINGS }),
 
       addGeneration: (generation) => set((state) => ({
         currentProject: state.currentProject ? {

@@ -5,11 +5,15 @@ import { generateId } from '../utils/imageUtils';
 import { Generation, Edit, Asset } from '../types';
 
 export const useImageGeneration = () => {
-  const { addGeneration, setIsGenerating, setCanvasImage, setCurrentProject, currentProject, selectedModel } = useAppStore();
+  const { addGeneration, setIsGenerating, setCanvasImage, setCurrentProject, currentProject, selectedModel, safetySettings } = useAppStore();
 
   const generateMutation = useMutation({
     mutationFn: async (request: GenerationRequest) => {
-      const images = await geminiService.generateImage({ ...request, model: request.model ?? selectedModel });
+      const images = await geminiService.generateImage({ 
+        ...request, 
+        model: request.model ?? selectedModel,
+        safetySettings 
+      });
       return images;
     },
     onMutate: () => {
@@ -100,7 +104,8 @@ export const useImageEditing = () => {
     currentProject,
     seed,
     temperature,
-    selectedModel
+    selectedModel,
+    safetySettings
   } = useAppStore();
 
   const editMutation = useMutation({
@@ -210,7 +215,8 @@ export const useImageEditing = () => {
         maskImage,
         temperature,
         seed,
-        model: selectedModel
+        model: selectedModel,
+        safetySettings
       };
 
       const images = await geminiService.editImage(request);

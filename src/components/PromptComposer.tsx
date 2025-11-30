@@ -4,13 +4,31 @@ import { Button } from './ui/Button';
 import { DropdownButton } from './ui/DropdownButton';
 import { useAppStore } from '../store/useAppStore';
 import { useImageGeneration, useImageEditing } from '../hooks/useImageGeneration';
-import { Upload, Wand2, Edit3, MousePointer, HelpCircle, Menu, ChevronDown, ChevronRight, RotateCcw, Clock } from 'lucide-react';
+import { Upload, Wand2, Edit3, MousePointer, HelpCircle, ChevronDown, ChevronRight, RotateCcw, Clock, Shield } from 'lucide-react';
 import { blobToBase64, generateId } from '../utils/imageUtils';
 import { PromptHints } from './PromptHints';
 import { cn } from '../utils/cn';
 import { CacheService } from '../services/cacheService';
 import { geminiService, MODEL_OPTIONS } from '../services/geminiService';
-import { BatchQueueRequest } from '../types';
+import { BatchQueueRequest, SafetyThreshold, HarmCategory } from '../types';
+
+// Safety threshold options for the slider
+const SAFETY_THRESHOLDS: { value: SafetyThreshold; label: string }[] = [
+  { value: 'OFF', label: 'Off' },
+  { value: 'BLOCK_NONE', label: 'Block none' },
+  { value: 'BLOCK_ONLY_HIGH', label: 'Block few' },
+  { value: 'BLOCK_MEDIUM_AND_ABOVE', label: 'Block some' },
+  { value: 'BLOCK_LOW_AND_ABOVE', label: 'Block most' },
+];
+
+// Human-readable category names
+const CATEGORY_LABELS: Record<HarmCategory, string> = {
+  HARM_CATEGORY_HARASSMENT: 'Harassment',
+  HARM_CATEGORY_HATE_SPEECH: 'Hate Speech',
+  HARM_CATEGORY_SEXUALLY_EXPLICIT: 'Sexually Explicit',
+  HARM_CATEGORY_DANGEROUS_CONTENT: 'Dangerous Content',
+  HARM_CATEGORY_CIVIC_INTEGRITY: 'Civic Integrity',
+};
 
 export const PromptComposer: React.FC = () => {
   const {
@@ -24,6 +42,9 @@ export const PromptComposer: React.FC = () => {
     setSeed,
     selectedModel,
     setSelectedModel,
+    safetySettings,
+    setSafetyThreshold,
+    resetSafetySettings,
     isGenerating,
     uploadedImages,
     addUploadedImage,
@@ -45,7 +66,18 @@ export const PromptComposer: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showHintsModal, setShowHintsModal] = useState(false);
+  const [showSafetySettings, setShowSafetySettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper to get slider index from threshold value
+  const getThresholdIndex = (threshold: SafetyThreshold): number => {
+    return SAFETY_THRESHOLDS.findIndex(t => t.value === threshold);
+  };
+
+  // Helper to get threshold from slider index
+  const getThresholdFromIndex = (index: number): SafetyThreshold => {
+    return SAFETY_THRESHOLDS[index].value;
+  };
 
   const handleGenerate = () => {
     if (!currentPrompt.trim()) return;
@@ -95,7 +127,8 @@ export const PromptComposer: React.FC = () => {
         referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         temperature,
         seed: seed || undefined,
-        model: selectedModel
+        model: selectedModel,
+        safetySettings
       });
 
       // Update with batch job name
@@ -443,6 +476,55 @@ export const PromptComposer: React.FC = () => {
                   placeholder="Random"
                   className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
                 />
+              </div>
+
+              {/* Safety Settings */}
+              <div className="pt-4 border-t border-gray-800">
+                <button
+                  onClick={() => setShowSafetySettings(!showSafetySettings)}
+                  className="flex items-center w-full text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  <span className="flex-1 text-left">Safety Settings</span>
+                  {showSafetySettings ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </button>
+
+                {showSafetySettings && (
+                  <div className="mt-3 p-3 bg-gray-900/50 rounded-lg border border-gray-800 space-y-4">
+                    <p className="text-xs text-gray-500">
+                      Adjust how likely you are to see responses that could be harmful.
+                    </p>
+
+                    {safetySettings.map((setting) => (
+                      <div key={setting.category}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-400">
+                            {CATEGORY_LABELS[setting.category]}
+                          </label>
+                          <span className="text-xs text-indigo-400">
+                            {SAFETY_THRESHOLDS[getThresholdIndex(setting.threshold)].label}
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="4"
+                          step="1"
+                          value={getThresholdIndex(setting.threshold)}
+                          onChange={(e) => setSafetyThreshold(setting.category, getThresholdFromIndex(parseInt(e.target.value)))}
+                          className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer slider accent-indigo-500"
+                        />
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={resetSafetySettings}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      Reset defaults
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

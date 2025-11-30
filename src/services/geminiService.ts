@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { SafetySetting } from '../types';
 
 // Note: In production, this should be handled via a backend proxy
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'demo-key';
@@ -11,27 +12,12 @@ export const MODEL_OPTIONS = [
 
 export const DEFAULT_MODEL = MODEL_OPTIONS[0].model;
 
-const safetySettings = [
-  {
-    category: "HARM_CATEGORY_HARASSMENT",
-    threshold: "BLOCK_LOW_AND_ABOVE",
-  },
-  {
-    category: "HARM_CATEGORY_HATE_SPEECH",
-    threshold: "BLOCK_LOW_AND_ABOVE",
-  },
-  {
-    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-    threshold: "BLOCK_LOW_AND_ABOVE",
-  },
-  {
-    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-    threshold: "BLOCK_LOW_AND_ABOVE",
-  },
-  {
-    category: "HARM_CATEGORY_CIVIC_INTEGRITY",
-    threshold: "BLOCK_LOW_AND_ABOVE",
-  },
+export const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [
+  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
+  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_LOW_AND_ABOVE' },
 ];
 
 export interface GenerationRequest {
@@ -40,6 +26,7 @@ export interface GenerationRequest {
   temperature?: number;
   seed?: number;
   model?: string;
+  safetySettings?: SafetySetting[];
 }
 
 export interface EditRequest {
@@ -50,6 +37,7 @@ export interface EditRequest {
   temperature?: number;
   seed?: number;
   model?: string;
+  safetySettings?: SafetySetting[];
 }
 
 export interface SegmentationRequest {
@@ -85,15 +73,15 @@ export class GeminiService {
         model: request.model ?? DEFAULT_MODEL,
         contents,
         config: {
-          safetySettings: safetySettings,
+          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
         },
       });
 
       const images: string[] = [];
       console.log('response', response);
 
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
+      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData?.data) {
           images.push(part.inlineData.data);
         }
       }
@@ -152,15 +140,15 @@ export class GeminiService {
         model: request.model ?? DEFAULT_MODEL,
         contents,
         config: {
-          safetySettings: safetySettings,
+          safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
         },
       });
 
       const images: string[] = [];
       console.log('response', response);
 
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
+      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
+        if (part.inlineData?.data) {
           images.push(part.inlineData.data);
         }
       }
@@ -202,12 +190,13 @@ Only segment the specific object or region requested. The mask should be a binar
         model: DEFAULT_MODEL,
         contents: prompt,
         config: {
-          safetySettings: safetySettings,
+          safetySettings: DEFAULT_SAFETY_SETTINGS as any,
         },
       });
       console.log('response', response);
 
-      const responseText = response.candidates[0].content.parts[0].text;
+      const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!responseText) throw new Error('No response text received');
       return JSON.parse(responseText);
     } catch (error) {
       console.error('Error segmenting image:', error);
@@ -260,7 +249,7 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
         generationConfig: {
           responseModalities: ['TEXT', 'IMAGE']
         },
-        safetySettings: safetySettings
+        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any
       }];
 
       const response = await genAI.batches.create({
