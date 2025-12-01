@@ -60,12 +60,14 @@ export class GeminiService {
         config.seed = request.seed;
       }
 
-      // Add prompt with reference context if applicable
+      // Always add prompt first
+      contents.push({ text: request.prompt });
+
+      // Add reference images if provided
       if (request.referenceImages && request.referenceImages.length > 0) {
         contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}`
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
         });
-        // Add labeled reference images
         request.referenceImages.forEach((image, index) => {
           contents.push({ text: `reference-${index + 1}:` });
           contents.push({
@@ -75,8 +77,6 @@ export class GeminiService {
             },
           });
         });
-      } else {
-        contents.push({ text: request.prompt });
       }
 
       const response = await genAI.models.generateContent({
@@ -115,14 +115,8 @@ export class GeminiService {
         config.seed = request.seed;
       }
 
-      // Add prompt with reference context if applicable
-      if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${this.buildEditPrompt(request)}`
-        });
-      } else {
-        contents.push({ text: this.buildEditPrompt(request) });
-      }
+      // Always add instruction first
+      contents.push({ text: this.buildEditPrompt(request) });
 
       // Add original image to edit
       contents.push({
@@ -132,8 +126,11 @@ export class GeminiService {
         },
       });
 
-      // Add labeled reference images if provided
+      // Add reference images if provided
       if (request.referenceImages && request.referenceImages.length > 0) {
+        contents.push({
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
+        });
         request.referenceImages.forEach((image, index) => {
           contents.push({ text: `reference-${index + 1}:` });
           contents.push({
@@ -145,6 +142,7 @@ export class GeminiService {
         });
       }
 
+      // Add mask image if provided
       if (request.maskImage) {
         contents.push({
           inlineData: {
@@ -237,12 +235,14 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
     try {
       const contents: any[] = [];
 
-      // Add prompt with reference context if applicable
+      // Always add prompt first
+      contents.push({ text: request.prompt });
+
+      // Add reference images if provided
       if (request.referenceImages && request.referenceImages.length > 0) {
         contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]\n\n${request.prompt}`
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
         });
-        // Add labeled reference images
         request.referenceImages.forEach((image, index) => {
           contents.push({ text: `reference-${index + 1}:` });
           contents.push({
@@ -252,8 +252,6 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
             },
           });
         });
-      } else {
-        contents.push({ text: request.prompt });
       }
 
       // For image generation, must specify responseModalities
@@ -289,6 +287,82 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
     } catch (error) {
       console.error('Error submitting batch request:', error);
       throw new Error('Failed to submit batch request. Please try again.');
+    }
+  }
+
+  async submitBatchEditRequest(request: EditRequest): Promise<{ batchName: string }> {
+    try {
+      const contents: any[] = [];
+
+      // Always add instruction first
+      contents.push({ text: this.buildEditPrompt(request) });
+
+      // Add original image to edit
+      contents.push({
+        inlineData: {
+          mimeType: "image/png",
+          data: request.originalImage,
+        },
+      });
+
+      // Add reference images if provided
+      if (request.referenceImages && request.referenceImages.length > 0) {
+        contents.push({
+          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
+        });
+        request.referenceImages.forEach((image, index) => {
+          contents.push({ text: `reference-${index + 1}:` });
+          contents.push({
+            inlineData: {
+              mimeType: "image/png",
+              data: image,
+            },
+          });
+        });
+      }
+
+      // Add mask image if provided
+      if (request.maskImage) {
+        contents.push({
+          inlineData: {
+            mimeType: "image/png",
+            data: request.maskImage,
+          },
+        });
+      }
+
+      const inlinedConfig: Record<string, unknown> = {
+        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
+      };
+
+      if (request.temperature !== undefined) {
+        inlinedConfig.temperature = request.temperature;
+      }
+      if (request.seed !== undefined) {
+        inlinedConfig.seed = request.seed;
+      }
+
+      const inlinedRequests = [{
+        contents: [{
+          parts: contents,
+          role: 'user' as const
+        }],
+        config: inlinedConfig,
+      }];
+
+      const response = await genAI.batches.create({
+        model: request.model ?? DEFAULT_MODEL,
+        src: inlinedRequests,
+        config: {
+          displayName: `batch-edit-${Date.now()}`,
+        }
+      });
+
+      console.log('Batch edit job created:', response);
+      return { batchName: response.name || '' };
+    } catch (error) {
+      console.error('Error submitting batch edit request:', error);
+      throw new Error('Failed to submit batch edit request. Please try again.');
     }
   }
 

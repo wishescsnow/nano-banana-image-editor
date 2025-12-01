@@ -58,6 +58,8 @@ export const PromptComposer: React.FC = () => {
     setCanvasImage,
     showPromptPanel,
     setShowPromptPanel,
+    brushStrokes,
+    brushSize,
     clearBrushStrokes,
   } = useAppStore();
 
@@ -109,12 +111,62 @@ export const PromptComposer: React.FC = () => {
       .filter(img => img.includes('base64,'))
       .map(img => img.split('base64,')[1]);
 
+    const originalImage = canvasImage?.includes('base64,') ? canvasImage.split('base64,')[1] : undefined;
+
+    // Create mask from brush strokes if in edit mode and strokes exist
+    let maskImage: string | undefined;
+    if (isEditMode && brushStrokes.length > 0 && canvasImage) {
+      try {
+        // Create a temporary image to get actual dimensions
+        const tempImg = new Image();
+        tempImg.src = canvasImage;
+        await new Promise<void>((resolve) => {
+          tempImg.onload = () => resolve();
+        });
+
+        // Create mask canvas with exact image dimensions
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        canvas.width = tempImg.width;
+        canvas.height = tempImg.height;
+
+        // Fill with black (unmasked areas)
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw white strokes (masked areas)
+        ctx.strokeStyle = 'white';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        brushStrokes.forEach(stroke => {
+          if (stroke.points.length >= 4) {
+            ctx.lineWidth = stroke.brushSize;
+            ctx.beginPath();
+            ctx.moveTo(stroke.points[0], stroke.points[1]);
+
+            for (let i = 2; i < stroke.points.length; i += 2) {
+              ctx.lineTo(stroke.points[i], stroke.points[i + 1]);
+            }
+            ctx.stroke();
+          }
+        });
+
+        // Convert mask to base64
+        const maskDataUrl = canvas.toDataURL('image/png');
+        maskImage = maskDataUrl.split('base64,')[1];
+      } catch (error) {
+        console.error('Failed to create mask:', error);
+      }
+    }
+
     const queueRequest: BatchQueueRequest = {
       id: generateId(),
       type: selectedTool === 'generate' ? 'generate' : 'edit',
       prompt: currentPrompt,
       referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-      originalImage: canvasImage?.includes('base64,') ? canvasImage.split('base64,')[1] : undefined,
+      originalImage,
+      maskImage,
       temperature,
       seed: seed || undefined,
       status: 'pending',
@@ -126,14 +178,33 @@ export const PromptComposer: React.FC = () => {
 
     // Submit to batch API
     try {
-      const { batchName } = await geminiService.submitBatchRequest({
-        prompt: currentPrompt,
-        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
-        temperature,
-        seed: seed || undefined,
-        model: selectedModel,
-        safetySettings
-      });
+      let batchName: string;
+
+      if (isEditMode && originalImage) {
+        // Use edit batch request for edit/mask mode
+        const result = await geminiService.submitBatchEditRequest({
+          instruction: currentPrompt,
+          originalImage,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+          maskImage,
+          temperature,
+          seed: seed || undefined,
+          model: selectedModel,
+          safetySettings
+        });
+        batchName = result.batchName;
+      } else {
+        // Use generate batch request
+        const result = await geminiService.submitBatchRequest({
+          prompt: currentPrompt,
+          referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+          temperature,
+          seed: seed || undefined,
+          model: selectedModel,
+          safetySettings
+        });
+        batchName = result.batchName;
+      }
 
       // Update with batch job name
       await CacheService.updateQueuedRequest(queueRequest.id, {
