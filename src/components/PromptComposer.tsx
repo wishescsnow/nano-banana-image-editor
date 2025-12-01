@@ -106,7 +106,7 @@ export const PromptComposer: React.FC = () => {
     // Use the correct image set based on mode
     const isEditMode = selectedTool === 'edit' || selectedTool === 'mask';
     const imageSource = isEditMode ? editReferenceImages : uploadedImages;
-    
+
     const referenceImages = imageSource
       .filter(img => img.includes('base64,'))
       .map(img => img.split('base64,')[1]);
@@ -252,6 +252,9 @@ export const PromptComposer: React.FC = () => {
         console.error('Failed to upload image:', error);
       }
     }
+
+    // Reset input so selecting the same file again triggers onChange
+    event.target.value = '';
   };
 
   const handleClearSession = () => {
