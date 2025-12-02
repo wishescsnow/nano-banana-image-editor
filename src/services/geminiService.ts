@@ -1,9 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { SafetySetting } from '../types';
-
-// Note: In production, this should be handled via a backend proxy
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'demo-key';
-const genAI = new GoogleGenAI({ apiKey: API_KEY });
+import { apiService } from './apiService';
 
 export const MODEL_OPTIONS = [
   { name: 'Nano Banana Pro', model: 'gemini-3-pro-image-preview' },
@@ -48,53 +44,15 @@ export interface SegmentationRequest {
 export class GeminiService {
   async generateImage(request: GenerationRequest): Promise<string[]> {
     try {
-      const contents: any[] = [];
-      const config: Record<string, unknown> = {
-        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-      };
-
-      if (request.temperature !== undefined) {
-        config.temperature = request.temperature;
-      }
-      if (request.seed !== undefined) {
-        config.seed = request.seed;
-      }
-
-      // Always add prompt first
-      contents.push({ text: request.prompt });
-
-      // Add reference images if provided
-      if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
-        });
-        request.referenceImages.forEach((image, index) => {
-          contents.push({ text: `reference-${index + 1}:` });
-          contents.push({
-            inlineData: {
-              mimeType: "image/png",
-              data: image,
-            },
-          });
-        });
-      }
-
-      const response = await genAI.models.generateContent({
+      const response = await apiService.generateImage({
+        prompt: request.prompt,
+        referenceImages: request.referenceImages,
+        temperature: request.temperature,
+        seed: request.seed,
         model: request.model ?? DEFAULT_MODEL,
-        contents,
-        config,
+        safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
       });
-
-      const images: string[] = [];
-      console.log('response', response);
-
-      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
-        if (part.inlineData?.data) {
-          images.push(part.inlineData.data);
-        }
-      }
-
-      return images;
+      return response.images;
     } catch (error) {
       console.error('Error generating image:', error);
       throw new Error('Failed to generate image. Please try again.');
@@ -103,71 +61,17 @@ export class GeminiService {
 
   async editImage(request: EditRequest): Promise<string[]> {
     try {
-      const contents: any[] = [];
-      const config: Record<string, unknown> = {
-        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-      };
-
-      if (request.temperature !== undefined) {
-        config.temperature = request.temperature;
-      }
-      if (request.seed !== undefined) {
-        config.seed = request.seed;
-      }
-
-      // Always add instruction first
-      contents.push({ text: this.buildEditPrompt(request) });
-
-      // Add original image to edit
-      contents.push({
-        inlineData: {
-          mimeType: "image/png",
-          data: request.originalImage,
-        },
-      });
-
-      // Add reference images if provided
-      if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
-        });
-        request.referenceImages.forEach((image, index) => {
-          contents.push({ text: `reference-${index + 1}:` });
-          contents.push({
-            inlineData: {
-              mimeType: "image/png",
-              data: image,
-            },
-          });
-        });
-      }
-
-      // Add mask image if provided
-      if (request.maskImage) {
-        contents.push({
-          inlineData: {
-            mimeType: "image/png",
-            data: request.maskImage,
-          },
-        });
-      }
-
-      const response = await genAI.models.generateContent({
+      const response = await apiService.editImage({
+        instruction: request.instruction,
+        originalImage: request.originalImage,
+        referenceImages: request.referenceImages,
+        maskImage: request.maskImage,
+        temperature: request.temperature,
+        seed: request.seed,
         model: request.model ?? DEFAULT_MODEL,
-        contents,
-        config,
+        safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
       });
-
-      const images: string[] = [];
-      console.log('response', response);
-
-      for (const part of response.candidates?.[0]?.content?.parts ?? []) {
-        if (part.inlineData?.data) {
-          images.push(part.inlineData.data);
-        }
-      }
-
-      return images;
+      return response.images;
     } catch (error) {
       console.error('Error editing image:', error);
       throw new Error('Failed to edit image. Please try again.');
@@ -176,114 +80,27 @@ export class GeminiService {
 
   async segmentImage(request: SegmentationRequest): Promise<any> {
     try {
-      const prompt = [
-        {
-          text: `Analyze this image and create a segmentation mask for: ${request.query}
-
-Return a JSON object with this exact structure:
-{
-  "masks": [
-    {
-      "label": "description of the segmented object",
-      "box_2d": [x, y, width, height],
-      "mask": "base64-encoded binary mask image"
-    }
-  ]
-}
-
-Only segment the specific object or region requested. The mask should be a binary PNG where white pixels (255) indicate the selected region and black pixels (0) indicate the background.` },
-        {
-          inlineData: {
-            mimeType: "image/png",
-            data: request.image,
-          },
-        },
-      ];
-
-      const response = await genAI.models.generateContent({
-        model: DEFAULT_MODEL,
-        contents: prompt,
-        config: {
-          safetySettings: DEFAULT_SAFETY_SETTINGS as any,
-        },
+      return await apiService.segmentImage({
+        image: request.image,
+        query: request.query,
       });
-      console.log('response', response);
-
-      const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!responseText) throw new Error('No response text received');
-      return JSON.parse(responseText);
     } catch (error) {
       console.error('Error segmenting image:', error);
       throw new Error('Failed to segment image. Please try again.');
     }
   }
 
-  private buildEditPrompt(request: EditRequest): string {
-    const maskInstruction = request.maskImage
-      ? "\n\nIMPORTANT: Apply changes ONLY where the mask image shows white pixels (value 255). Leave all other areas completely unchanged. Respect the mask boundaries precisely and maintain seamless blending at the edges."
-      : "";
-
-    return `Edit this image according to the following instruction: ${request.instruction}
-
-Maintain the original image's lighting, perspective, and overall composition. Make the changes look natural and seamlessly integrated.${maskInstruction}
-
-Preserve image quality and ensure the edit looks professional and realistic.`;
-  }
-
   // Batch API methods
   async submitBatchRequest(request: GenerationRequest): Promise<{ batchName: string }> {
     try {
-      const contents: any[] = [];
-
-      // Always add prompt first
-      contents.push({ text: request.prompt });
-
-      // Add reference images if provided
-      if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
-        });
-        request.referenceImages.forEach((image, index) => {
-          contents.push({ text: `reference-${index + 1}:` });
-          contents.push({
-            inlineData: {
-              mimeType: "image/png",
-              data: image,
-            },
-          });
-        });
-      }
-
-      // For image generation, must specify responseModalities
-      const inlinedConfig: Record<string, unknown> = {
-        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-      };
-
-      if (request.temperature !== undefined) {
-        inlinedConfig.temperature = request.temperature;
-      }
-      if (request.seed !== undefined) {
-        inlinedConfig.seed = request.seed;
-      }
-
-      const inlinedRequests = [{
-        contents: [{
-          parts: contents,
-          role: 'user' as const
-        }],
-        config: inlinedConfig,
-      }];
-
-      const response = await genAI.batches.create({
+      return await apiService.submitBatchGenerate({
+        prompt: request.prompt,
+        referenceImages: request.referenceImages,
+        temperature: request.temperature,
+        seed: request.seed,
         model: request.model ?? DEFAULT_MODEL,
-        src: inlinedRequests,
-        config: {
-          displayName: `batch-${Date.now()}`,
-        }
+        safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
       });
-
-      console.log('Batch job created:', response);
-      return { batchName: response.name || '' };
     } catch (error) {
       console.error('Error submitting batch request:', error);
       throw new Error('Failed to submit batch request. Please try again.');
@@ -292,74 +109,16 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
 
   async submitBatchEditRequest(request: EditRequest): Promise<{ batchName: string }> {
     try {
-      const contents: any[] = [];
-
-      // Always add instruction first
-      contents.push({ text: this.buildEditPrompt(request) });
-
-      // Add original image to edit
-      contents.push({
-        inlineData: {
-          mimeType: "image/png",
-          data: request.originalImage,
-        },
-      });
-
-      // Add reference images if provided
-      if (request.referenceImages && request.referenceImages.length > 0) {
-        contents.push({
-          text: `[${request.referenceImages.length} reference image(s) provided as reference-1 through reference-${request.referenceImages.length}]`
-        });
-        request.referenceImages.forEach((image, index) => {
-          contents.push({ text: `reference-${index + 1}:` });
-          contents.push({
-            inlineData: {
-              mimeType: "image/png",
-              data: image,
-            },
-          });
-        });
-      }
-
-      // Add mask image if provided
-      if (request.maskImage) {
-        contents.push({
-          inlineData: {
-            mimeType: "image/png",
-            data: request.maskImage,
-          },
-        });
-      }
-
-      const inlinedConfig: Record<string, unknown> = {
-        safetySettings: (request.safetySettings ?? DEFAULT_SAFETY_SETTINGS) as any,
-      };
-
-      if (request.temperature !== undefined) {
-        inlinedConfig.temperature = request.temperature;
-      }
-      if (request.seed !== undefined) {
-        inlinedConfig.seed = request.seed;
-      }
-
-      const inlinedRequests = [{
-        contents: [{
-          parts: contents,
-          role: 'user' as const
-        }],
-        config: inlinedConfig,
-      }];
-
-      const response = await genAI.batches.create({
+      return await apiService.submitBatchEdit({
+        instruction: request.instruction,
+        originalImage: request.originalImage,
+        referenceImages: request.referenceImages,
+        maskImage: request.maskImage,
+        temperature: request.temperature,
+        seed: request.seed,
         model: request.model ?? DEFAULT_MODEL,
-        src: inlinedRequests,
-        config: {
-          displayName: `batch-edit-${Date.now()}`,
-        }
+        safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
       });
-
-      console.log('Batch edit job created:', response);
-      return { batchName: response.name || '' };
     } catch (error) {
       console.error('Error submitting batch edit request:', error);
       throw new Error('Failed to submit batch edit request. Please try again.');
@@ -371,11 +130,7 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
     destFileName?: string;
   }> {
     try {
-      const response = await genAI.batches.get({ name: batchName });
-      return {
-        state: response.state || 'UNKNOWN',
-        destFileName: response.dest?.fileName
-      };
+      return await apiService.getBatchStatus(batchName);
     } catch (error) {
       console.error('Error getting batch status:', error);
       throw new Error('Failed to get batch status.');
@@ -384,49 +139,8 @@ Preserve image quality and ensure the edit looks professional and realistic.`;
 
   async getBatchResults(batchName: string): Promise<string[]> {
     try {
-      const batchJob = await genAI.batches.get({ name: batchName });
-      console.log('Batch job result:', JSON.stringify(batchJob, null, 2));
-
-      if (batchJob.state !== 'JOB_STATE_SUCCEEDED') {
-        throw new Error(`Batch job not completed. Current state: ${batchJob.state}`);
-      }
-
-      const images: string[] = [];
-      const dest = batchJob.dest as any;
-
-      // Check for inlinedResponses (inline request results)
-      if (dest?.inlinedResponses && dest.inlinedResponses.length > 0) {
-        console.log('Found inlinedResponses:', dest.inlinedResponses.length);
-        for (const item of dest.inlinedResponses) {
-          const response = item.response;
-          if (response?.candidates?.[0]?.content?.parts) {
-            for (const part of response.candidates[0].content.parts) {
-              if (part.inlineData?.data) {
-                console.log('Found image data, length:', part.inlineData.data.length);
-                images.push(part.inlineData.data);
-              }
-            }
-          }
-        }
-      }
-
-      // Also check top-level responses property (alternative structure)
-      if (dest?.responses && dest.responses.length > 0) {
-        console.log('Found responses:', dest.responses.length);
-        for (const response of dest.responses) {
-          if (response?.candidates?.[0]?.content?.parts) {
-            for (const part of response.candidates[0].content.parts) {
-              if (part.inlineData?.data) {
-                console.log('Found image data in responses, length:', part.inlineData.data.length);
-                images.push(part.inlineData.data);
-              }
-            }
-          }
-        }
-      }
-
-      console.log('Total images found:', images.length);
-      return images;
+      const response = await apiService.getBatchResults(batchName);
+      return response.images;
     } catch (error) {
       console.error('Error getting batch results:', error);
       throw new Error('Failed to get batch results.');

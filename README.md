@@ -71,12 +71,17 @@ A production-ready React + TypeScript application for delightful image generatio
 2. **Configure environment**:
    ```bash
    cp .env.example .env
-   # Add your Gemini API key to VITE_GEMINI_API_KEY
+   # Add your Gemini API key to GEMINI_API_KEY
    ```
 
-3. **Start development server**:
+3. **Start development servers**:
    ```bash
-   npm run dev
+   # Run both frontend and API server together
+   npm run dev:all
+   
+   # Or run them separately:
+   npm run dev:server  # Express API on http://localhost:3001
+   npm run dev         # Vite frontend on http://localhost:5173
    ```
 
 4. **Open in browser**: Navigate to `http://localhost:5173`
@@ -127,6 +132,7 @@ A production-ready React + TypeScript application for delightful image generatio
 
 ### Tech Stack
 - **Frontend**: React 18, TypeScript, Tailwind CSS
+- **Backend**: Express.js API middleware (keeps API keys secure)
 - **State Management**: Zustand for app state, React Query for server state  
 - **Canvas**: Konva.js for interactive image display and mask overlays
 - **AI Integration**: Google Generative AI SDK (Gemini 3.0 Pro Image)
@@ -135,36 +141,39 @@ A production-ready React + TypeScript application for delightful image generatio
 
 ### Project Structure
 ```
-src/
-├── components/          # React components
-│   ├── ui/             # Reusable UI components (Button, Input, DropdownButton, etc.)
-│   ├── PromptComposer.tsx  # Prompt input and tool selection
-│   ├── ImageCanvas.tsx     # Interactive canvas with Konva
-│   ├── HistoryPanel.tsx    # Tabbed panel for history and queue
-│   ├── QueuedRequestsPanel.tsx # Batch API queue management
-│   ├── Header.tsx          # App header and navigation
-│   └── InfoModal.tsx       # About modal with links
-├── services/           # External service integrations
-│   ├── geminiService.ts    # Gemini API client
-│   ├── cacheService.ts     # IndexedDB caching layer
-│   └── imageProcessing.ts  # Image manipulation utilities
-├── store/              # Zustand state management
-│   └── useAppStore.ts      # Global application state
-├── hooks/              # Custom React hooks
-│   ├── useImageGeneration.ts  # Generation and editing logic
-│   └── useKeyboardShortcuts.ts # Keyboard navigation
-├── utils/              # Utility functions
-│   ├── cn.ts              # Class name utility
-│   └── imageUtils.ts      # Image processing helpers
-└── types/              # TypeScript type definitions
-    └── index.ts           # Core type definitions
+├── server/              # Express API middleware
+│   └── index.ts            # API endpoints for Gemini calls
+├── src/
+│   ├── components/          # React components
+│   │   ├── ui/             # Reusable UI components (Button, Input, DropdownButton, etc.)
+│   │   ├── PromptComposer.tsx  # Prompt input and tool selection
+│   │   ├── ImageCanvas.tsx     # Interactive canvas with Konva
+│   │   ├── HistoryPanel.tsx    # Tabbed panel for history and queue
+│   │   ├── QueuedRequestsPanel.tsx # Batch API queue management
+│   │   ├── Header.tsx          # App header and navigation
+│   │   └── InfoModal.tsx       # About modal with links
+│   ├── services/           # External service integrations
+│   │   ├── apiService.ts       # HTTP client for backend API
+│   │   ├── geminiService.ts    # Gemini service facade
+│   │   ├── cacheService.ts     # IndexedDB caching layer
+│   │   └── imageProcessing.ts  # Image manipulation utilities
+│   ├── store/              # Zustand state management
+│   │   └── useAppStore.ts      # Global application state
+│   ├── hooks/              # Custom React hooks
+│   │   ├── useImageGeneration.ts  # Generation and editing logic
+│   │   └── useKeyboardShortcuts.ts # Keyboard navigation
+│   ├── utils/              # Utility functions
+│   │   ├── cn.ts              # Class name utility
+│   │   └── imageUtils.ts      # Image processing helpers
+│   └── types/              # TypeScript type definitions
+│       └── index.ts           # Core type definitions
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
 ```bash
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 ### Model Configuration
@@ -177,14 +186,16 @@ VITE_GEMINI_API_KEY=your_gemini_api_key_here
 
 ### Development
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run preview  # Preview production build
-npm run lint     # Run ESLint
+npm run dev:all     # Start frontend + API server together
+npm run dev         # Start Vite frontend only
+npm run dev:server  # Start Express API server only
+npm run build       # Build frontend for production
+npm run preview     # Preview production build
+npm run lint        # Run ESLint
 ```
 
 ### Production Considerations
-- **API Security**: Implement backend proxy for API calls in production
+- **API Security**: ✅ Backend proxy implemented - API key stays server-side
 - **Rate Limiting**: Add proper rate limiting and usage quotas
 - **Authentication**: Consider user authentication for multi-user deployments
 - **Storage**: Set up cloud storage for generated assets
@@ -225,7 +236,6 @@ We welcome contributions! Please:
 
 ## 🐛 Known Issues & Limitations
 
-- **Client-side API calls** - Currently uses direct API calls (implement backend proxy for production)
 - **Browser compatibility** - Requires modern browsers with Canvas and WebGL support
 - **Rate limits** - Subject to Google AI Studio rate limits
 - **Image size** - Optimized for 1024×1024 outputs (Gemini model output dimensions may vary)
@@ -233,7 +243,7 @@ We welcome contributions! Please:
 ## 🎯 Suggested Updates
 
 - [x] Batch API integration for 50% cost savings
-- [ ] Backend API proxy implementation
+- [x] Backend API proxy implementation
 - [ ] User authentication and project sharing
 - [ ] Advanced brush tools and selection methods
 - [ ] Plugin system for custom filters
