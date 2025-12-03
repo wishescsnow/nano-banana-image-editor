@@ -1,11 +1,33 @@
 import { useMutation } from '@tanstack/react-query';
-import { geminiService, GenerationRequest, EditRequest } from '../services/geminiService';
+import { geminiService, GenerationRequest, EditRequest, MODEL_RESOLUTIONS, DEFAULT_ASPECT_RATIO, DEFAULT_RESOLUTION_TIER, DEFAULT_MODEL } from '../services/geminiService';
 import { useAppStore } from '../store/useAppStore';
 import { generateId } from '../utils/imageUtils';
-import { Generation, Edit, Asset } from '../types';
+import { Generation, Edit, Asset, AspectRatio, ResolutionTier } from '../types';
+
+const getDimensions = (
+  model: string,
+  aspectRatio: AspectRatio,
+  resolutionTier: ResolutionTier
+): { width: number; height: number } => {
+  const resolutionMap = MODEL_RESOLUTIONS[model] ?? MODEL_RESOLUTIONS[DEFAULT_MODEL];
+  const effectiveAspectRatio = aspectRatio === 'auto' ? DEFAULT_ASPECT_RATIO : aspectRatio;
+  const ratioConfig = resolutionMap?.[effectiveAspectRatio] ?? resolutionMap?.[DEFAULT_ASPECT_RATIO];
+  const tierConfig = ratioConfig?.[resolutionTier] ?? ratioConfig?.[DEFAULT_RESOLUTION_TIER];
+
+  return tierConfig ?? { width: 1024, height: 1024 };
+};
 
 export const useImageGeneration = () => {
-  const { addGeneration, setIsGenerating, setCanvasImage, setCurrentProject, currentProject, selectedModel } = useAppStore();
+  const {
+    addGeneration,
+    setIsGenerating,
+    setCanvasImage,
+    setCurrentProject,
+    currentProject,
+    selectedModel,
+    aspectRatio,
+    resolutionTier
+  } = useAppStore();
 
   const generateMutation = useMutation({
     mutationFn: async (request: GenerationRequest) => {
@@ -14,7 +36,9 @@ export const useImageGeneration = () => {
       const images = await geminiService.generateImage({ 
         ...request, 
         model: request.model ?? selectedModel,
-        safetySettings 
+        safetySettings,
+        aspectRatio: request.aspectRatio ?? aspectRatio,
+        resolutionTier: request.resolutionTier ?? resolutionTier
       });
       return images;
     },
@@ -23,13 +47,18 @@ export const useImageGeneration = () => {
     },
     onSuccess: (images, request) => {
       if (images.length > 0) {
+        const modelToUse = request.model ?? selectedModel;
+        const requestAspectRatio = request.aspectRatio ?? aspectRatio;
+        const requestResolutionTier = request.resolutionTier ?? resolutionTier;
+        const dimensions = getDimensions(modelToUse, requestAspectRatio, requestResolutionTier);
+
         const outputAssets: Asset[] = images.map((base64, index) => ({
           id: generateId(),
           type: 'output',
           url: `data:image/png;base64,${base64}`,
           mime: 'image/png',
-          width: 1024, // Default Gemini output size
-          height: 1024,
+          width: dimensions.width,
+          height: dimensions.height,
           checksum: base64.slice(0, 32) // Simple checksum
         }));
 
@@ -37,7 +66,10 @@ export const useImageGeneration = () => {
           id: generateId(),
           prompt: request.prompt,
           parameters: {
-            aspectRatio: '1:1',
+            aspectRatio: requestAspectRatio,
+            resolutionTier: requestResolutionTier,
+            width: dimensions.width,
+            height: dimensions.height,
             seed: request.seed,
             temperature: request.temperature
           },
@@ -46,20 +78,20 @@ export const useImageGeneration = () => {
             type: 'original',
             url: `data:image/png;base64,${request.referenceImages[0]}`,
             mime: 'image/png',
-            width: 1024,
-            height: 1024,
+            width: dimensions.width,
+            height: dimensions.height,
             checksum: request.referenceImages[0].slice(0, 32)
           }] : request.referenceImages ? request.referenceImages.map((img, index) => ({
             id: generateId(),
             type: 'original' as const,
             url: `data:image/png;base64,${img}`,
             mime: 'image/png',
-            width: 1024,
-            height: 1024,
+            width: dimensions.width,
+            height: dimensions.height,
             checksum: img.slice(0, 32)
           })) : [],
           outputAssets,
-          modelVersion: request.model ?? selectedModel,
+          modelVersion: modelToUse,
           timestamp: Date.now()
         };
 
@@ -106,7 +138,10 @@ export const useImageEditing = () => {
     currentProject,
     seed,
     temperature,
-    selectedModel
+    selectedModel,
+    uploadedImages,
+    aspectRatio,
+    resolutionTier
   } = useAppStore();
 
   const editMutation = useMutation({
@@ -219,7 +254,9 @@ export const useImageEditing = () => {
         temperature,
         seed,
         model: selectedModel,
-        safetySettings
+        safetySettings,
+        aspectRatio,
+        resolutionTier
       };
 
       const images = await geminiService.editImage(request);

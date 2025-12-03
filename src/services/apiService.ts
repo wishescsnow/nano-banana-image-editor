@@ -1,4 +1,4 @@
-import { SafetySetting } from '../types';
+import { AspectRatio, ResolutionTier, SafetySetting } from '../types';
 
 const API_BASE = '/api';
 
@@ -9,6 +9,8 @@ export interface GenerateRequest {
   seed?: number;
   model?: string;
   safetySettings?: SafetySetting[];
+  aspectRatio?: AspectRatio;
+  resolutionTier?: ResolutionTier;
 }
 
 export interface EditRequest {
@@ -20,11 +22,20 @@ export interface EditRequest {
   seed?: number;
   model?: string;
   safetySettings?: SafetySetting[];
+  aspectRatio?: AspectRatio;
+  resolutionTier?: ResolutionTier;
 }
 
 export interface SegmentRequest {
-  image: string;
   query: string;
+  image?: string;
+  maskImage?: string;
+  temperature?: number;
+  seed?: number;
+  model?: string;
+  safetySettings?: SafetySetting[];
+  aspectRatio?: AspectRatio;
+  resolutionTier?: ResolutionTier;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -95,5 +106,13 @@ export const apiService = {
     });
     return handleResponse(response);
   },
-};
 
+  async submitBatchSegment(request: SegmentRequest): Promise<{ batchName: string }> {
+    const response = await fetch(`${API_BASE}/batch/segment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return handleResponse(response);
+  },
+};

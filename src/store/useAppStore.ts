@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Project, Generation, Edit, SegmentationMask, BrushStroke, SafetySetting, HarmCategory } from '../types';
+import { Project, Generation, Edit, SegmentationMask, BrushStroke, SafetySetting, HarmCategory, AspectRatio, ResolutionTier } from '../types';
 
 const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [
   { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
@@ -35,6 +35,8 @@ interface AppState {
   seed: number | null;
   selectedModel: string;
   safetySettings: SafetySetting[];
+  aspectRatio: AspectRatio;
+  resolutionTier: ResolutionTier;
 
   // History and variants
   selectedGenerationId: string | null;
@@ -71,6 +73,8 @@ interface AppState {
   setTemperature: (temp: number) => void;
   setSeed: (seed: number | null) => void;
   setSelectedModel: (model: string) => void;
+  setAspectRatio: (aspectRatio: AspectRatio) => void;
+  setResolutionTier: (tier: ResolutionTier) => void;
   setSafetyThreshold: (category: HarmCategory, threshold: SafetySetting['threshold']) => void;
   resetSafetySettings: () => void;
 
@@ -107,6 +111,8 @@ export const useAppStore = create<AppState>()(
       seed: null,
       selectedModel: 'gemini-3-pro-image-preview',
       safetySettings: DEFAULT_SAFETY_SETTINGS,
+      aspectRatio: '1:1',
+      resolutionTier: '1K',
 
       selectedGenerationId: null,
       selectedEditId: null,
@@ -149,7 +155,12 @@ export const useAppStore = create<AppState>()(
       setCurrentPrompt: (prompt) => set({ currentPrompt: prompt }),
       setTemperature: (temp) => set({ temperature: temp }),
       setSeed: (seed) => set({ seed: seed }),
-      setSelectedModel: (model) => set({ selectedModel: model }),
+      setSelectedModel: (model) => set((state) => ({
+        selectedModel: model,
+        resolutionTier: model === 'gemini-2.5-flash-image' ? '1K' : state.resolutionTier
+      })),
+      setAspectRatio: (aspectRatio) => set({ aspectRatio }),
+      setResolutionTier: (tier) => set({ resolutionTier: tier }),
       setSafetyThreshold: (category, threshold) => set((state) => ({
         safetySettings: state.safetySettings.map((s) =>
           s.category === category ? { ...s, threshold } : s

@@ -57,13 +57,24 @@ Return a JSON object with this exact structure:
   ]
 }
 
+function buildImageConfig(aspectRatio?: string, resolutionTier?: string) {
+  const imageConfig: Record<string, string> = {};
+  if (aspectRatio && aspectRatio !== 'auto') {
+    imageConfig.aspectRatio = aspectRatio;
+  }
+  if (resolutionTier) {
+    imageConfig.imageSize = resolutionTier;
+  }
+  return Object.keys(imageConfig).length > 0 ? imageConfig : undefined;
+}
+
 Only segment the specific object or region requested. The mask should be a binary PNG where white pixels (255) indicate the selected region and black pixels (0) indicate the background.`;
 }
 
 // POST /api/generate - Generate images from prompt
 app.post('/api/generate', async (req, res) => {
   try {
-    const { prompt, referenceImages, temperature, seed, model, safetySettings } = req.body;
+    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
 
     const contents: any[] = [];
     const config: Record<string, unknown> = {
@@ -75,6 +86,10 @@ app.post('/api/generate', async (req, res) => {
     }
     if (seed !== undefined) {
       config.seed = seed;
+    }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      config.imageConfig = imageConfig;
     }
 
     // Add prompt first
@@ -119,7 +134,7 @@ app.post('/api/generate', async (req, res) => {
 // POST /api/edit - Edit an existing image
 app.post('/api/edit', async (req, res) => {
   try {
-    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings } = req.body;
+    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
 
     const contents: any[] = [];
     const config: Record<string, unknown> = {
@@ -131,6 +146,10 @@ app.post('/api/edit', async (req, res) => {
     }
     if (seed !== undefined) {
       config.seed = seed;
+    }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      config.imageConfig = imageConfig;
     }
 
     // Add instruction first
@@ -193,24 +212,43 @@ app.post('/api/edit', async (req, res) => {
 // POST /api/segment - Segment an image
 app.post('/api/segment', async (req, res) => {
   try {
-    const { image, query } = req.body;
+    const { query, image, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+
+    if ((image && maskImage) || (!image && !maskImage)) {
+      return res.status(400).json({ error: 'Provide either image or maskImage, but not both' });
+    }
+
+    const targetImage = maskImage ?? image;
 
     const contents = [
       { text: buildSegmentationPrompt(query) },
       {
         inlineData: {
           mimeType: "image/png",
-          data: image,
+          data: targetImage,
         },
       },
     ];
 
+    const config: Record<string, unknown> = {
+      safetySettings: safetySettings ?? DEFAULT_SAFETY_SETTINGS,
+    };
+
+    if (temperature !== undefined) {
+      config.temperature = temperature;
+    }
+    if (seed !== undefined) {
+      config.seed = seed;
+    }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      config.imageConfig = imageConfig;
+    }
+
     const response = await genAI.models.generateContent({
-      model: DEFAULT_MODEL,
+      model: model ?? DEFAULT_MODEL,
       contents,
-      config: {
-        safetySettings: DEFAULT_SAFETY_SETTINGS as any,
-      },
+      config,
     });
 
     const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -234,7 +272,7 @@ app.post('/api/segment', async (req, res) => {
 // POST /api/batch/generate - Submit batch generation request
 app.post('/api/batch/generate', async (req, res) => {
   try {
-    const { prompt, referenceImages, temperature, seed, model, safetySettings } = req.body;
+    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
 
     const contents: any[] = [];
 
@@ -265,6 +303,10 @@ app.post('/api/batch/generate', async (req, res) => {
     if (seed !== undefined) {
       inlinedConfig.seed = seed;
     }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      inlinedConfig.imageConfig = imageConfig;
+    }
 
     const inlinedRequests = [{
       contents: [{
@@ -292,7 +334,7 @@ app.post('/api/batch/generate', async (req, res) => {
 // POST /api/batch/edit - Submit batch edit request
 app.post('/api/batch/edit', async (req, res) => {
   try {
-    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings } = req.body;
+    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
 
     const contents: any[] = [];
 
@@ -339,6 +381,10 @@ app.post('/api/batch/edit', async (req, res) => {
     if (seed !== undefined) {
       inlinedConfig.seed = seed;
     }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      inlinedConfig.imageConfig = imageConfig;
+    }
 
     const inlinedRequests = [{
       contents: [{
@@ -360,6 +406,65 @@ app.post('/api/batch/edit', async (req, res) => {
   } catch (error: any) {
     console.error('Error in /api/batch/edit:', error);
     res.status(500).json({ error: error.message || 'Failed to submit batch edit request' });
+  }
+});
+
+// POST /api/batch/segment - Submit batch segmentation request
+app.post('/api/batch/segment', async (req, res) => {
+  try {
+    const { query, image, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+
+    if ((image && maskImage) || (!image && !maskImage)) {
+      return res.status(400).json({ error: 'Provide either image or maskImage, but not both' });
+    }
+
+    const targetImage = maskImage ?? image;
+
+    const contents = [
+      { text: buildSegmentationPrompt(query) },
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: targetImage,
+        },
+      },
+    ];
+
+    const inlinedConfig: Record<string, unknown> = {
+      safetySettings: safetySettings ?? DEFAULT_SAFETY_SETTINGS,
+    };
+
+    if (temperature !== undefined) {
+      inlinedConfig.temperature = temperature;
+    }
+    if (seed !== undefined) {
+      inlinedConfig.seed = seed;
+    }
+    const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
+    if (imageConfig) {
+      inlinedConfig.imageConfig = imageConfig;
+    }
+
+    const inlinedRequests = [{
+      contents: [{
+        parts: contents,
+        role: 'user' as const
+      }],
+      config: inlinedConfig,
+    }];
+
+    const response = await genAI.batches.create({
+      model: model ?? DEFAULT_MODEL,
+      src: inlinedRequests,
+      config: {
+        displayName: `batch-segment-${Date.now()}`,
+      }
+    });
+
+    res.json({ batchName: response.name || '' });
+  } catch (error: any) {
+    console.error('Error in /api/batch/segment:', error);
+    res.status(500).json({ error: error.message || 'Failed to submit batch segment request' });
   }
 });
 
@@ -426,4 +531,3 @@ app.get('/api/batch/:name/results', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`API server running on http://localhost:${PORT}`);
 });
-

@@ -12,6 +12,10 @@ export interface Generation {
   id: string;
   prompt: string;
   parameters: {
+    aspectRatio?: AspectRatio;
+    resolutionTier?: ResolutionTier;
+    width?: number;
+    height?: number;
     seed?: number;
     temperature?: number;
   };
@@ -70,6 +74,8 @@ export interface BatchQueueRequest {
   id: string;
   type: 'generate' | 'edit';
   prompt: string;
+  aspectRatio?: AspectRatio;
+  resolutionTier?: ResolutionTier;
   referenceImages?: string[];
   originalImage?: string;
   maskImage?: string;
@@ -103,3 +109,7 @@ export interface SafetySetting {
   category: HarmCategory;
   threshold: SafetyThreshold;
 }
+
+export type AspectRatio = 'auto' | '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '9:16' | '16:9';
+
+export type ResolutionTier = '1K' | '2K' | '4K';

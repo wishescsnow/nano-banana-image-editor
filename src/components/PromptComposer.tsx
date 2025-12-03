@@ -9,8 +9,8 @@ import { blobToBase64, generateId } from '../utils/imageUtils';
 import { PromptHints } from './PromptHints';
 import { cn } from '../utils/cn';
 import { CacheService } from '../services/cacheService';
-import { geminiService, MODEL_OPTIONS } from '../services/geminiService';
-import { BatchQueueRequest, SafetyThreshold, HarmCategory } from '../types';
+import { geminiService, MODEL_OPTIONS, ASPECT_RATIOS, RESOLUTION_TIERS, DEFAULT_ASPECT_RATIO, DEFAULT_RESOLUTION_TIER } from '../services/geminiService';
+import { AspectRatio, BatchQueueRequest, ResolutionTier, SafetyThreshold, HarmCategory } from '../types';
 
 // Safety threshold options for the slider
 const SAFETY_THRESHOLDS: { value: SafetyThreshold; label: string }[] = [
@@ -61,6 +61,10 @@ export const PromptComposer: React.FC = () => {
     brushStrokes,
     brushSize,
     clearBrushStrokes,
+    aspectRatio,
+    setAspectRatio,
+    resolutionTier,
+    setResolutionTier,
   } = useAppStore();
 
   const { generate } = useImageGeneration();
@@ -81,6 +85,24 @@ export const PromptComposer: React.FC = () => {
     return SAFETY_THRESHOLDS[index].value;
   };
 
+  const isFlashModel = selectedModel === 'gemini-2.5-flash-image';
+
+  const handleModelChange = (value: string) => {
+    setSelectedModel(value);
+    if (value === 'gemini-2.5-flash-image') {
+      setResolutionTier(DEFAULT_RESOLUTION_TIER);
+    }
+  };
+
+  const handleAspectRatioChange = (value: AspectRatio) => {
+    setAspectRatio(value);
+  };
+
+  const handleResolutionTierChange = (tier: ResolutionTier) => {
+    if (isFlashModel && tier !== '1K') return;
+    setResolutionTier(tier);
+  };
+
   const handleGenerate = () => {
     if (!currentPrompt.trim()) return;
 
@@ -93,7 +115,9 @@ export const PromptComposer: React.FC = () => {
         prompt: currentPrompt,
         referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
         temperature,
-        seed: seed || undefined
+        seed: seed || undefined,
+        aspectRatio,
+        resolutionTier
       });
     } else if (selectedTool === 'edit' || selectedTool === 'mask') {
       edit(currentPrompt);
@@ -164,6 +188,8 @@ export const PromptComposer: React.FC = () => {
       id: generateId(),
       type: selectedTool === 'generate' ? 'generate' : 'edit',
       prompt: currentPrompt,
+      aspectRatio,
+      resolutionTier,
       referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
       originalImage,
       maskImage,
@@ -190,7 +216,9 @@ export const PromptComposer: React.FC = () => {
           temperature,
           seed: seed || undefined,
           model: selectedModel,
-          safetySettings
+          safetySettings,
+          aspectRatio,
+          resolutionTier
         });
         batchName = result.batchName;
       } else {
@@ -201,7 +229,9 @@ export const PromptComposer: React.FC = () => {
           temperature,
           seed: seed || undefined,
           model: selectedModel,
-          safetySettings
+          safetySettings,
+          aspectRatio,
+          resolutionTier
         });
         batchName = result.batchName;
       }
@@ -265,6 +295,8 @@ export const PromptComposer: React.FC = () => {
     setCanvasImage(null);
     setSeed(null);
     setTemperature(0.7);
+    setAspectRatio(DEFAULT_ASPECT_RATIO);
+    setResolutionTier(DEFAULT_RESOLUTION_TIER);
     setShowClearConfirm(false);
   };
 
@@ -517,13 +549,62 @@ export const PromptComposer: React.FC = () => {
                 </label>
                 <select
                   value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
+                  onChange={(e) => handleModelChange(e.target.value)}
                   className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
                 >
                   {MODEL_OPTIONS.map((opt) => (
                     <option key={opt.model} value={opt.model}>{opt.name}</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Aspect Ratio */}
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block">
+                  Aspect Ratio
+                </label>
+                <select
+                  value={aspectRatio}
+                  onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
+                  className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
+                >
+                  {ASPECT_RATIOS.map((ratio) => (
+                    <option key={ratio} value={ratio}>{ratio}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Resolution */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-gray-400 block">
+                    Resolution Tier
+                  </label>
+                  {isFlashModel && (
+                    <span className="text-[10px] text-gray-500">Flash supports 1K only</span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {RESOLUTION_TIERS.map((tier) => {
+                    const disabled = isFlashModel && tier !== '1K';
+                    return (
+                      <button
+                        key={tier}
+                        onClick={() => handleResolutionTierChange(tier)}
+                        disabled={disabled}
+                        className={cn(
+                          'h-8 text-xs rounded border transition-colors',
+                          resolutionTier === tier
+                            ? 'border-yellow-400/60 bg-yellow-400/10 text-yellow-300'
+                            : 'border-gray-700 bg-gray-900 text-gray-300 hover:bg-gray-800',
+                          disabled && 'opacity-50 cursor-not-allowed'
+                        )}
+                      >
+                        {tier}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Temperature */}
