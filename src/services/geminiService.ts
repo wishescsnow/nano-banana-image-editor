@@ -7,7 +7,7 @@ export const MODEL_OPTIONS = [
 ] as const;
 
 export const DEFAULT_MODEL = MODEL_OPTIONS[0].model;
-export const DEFAULT_ASPECT_RATIO: AspectRatio = '1:1';
+export const DEFAULT_ASPECT_RATIO: AspectRatio = 'auto';
 export const DEFAULT_RESOLUTION_TIER: ResolutionTier = '1K';
 
 export const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [

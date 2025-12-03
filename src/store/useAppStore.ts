@@ -111,7 +111,7 @@ export const useAppStore = create<AppState>()(
       seed: null,
       selectedModel: 'gemini-3-pro-image-preview',
       safetySettings: DEFAULT_SAFETY_SETTINGS,
-      aspectRatio: '1:1',
+      aspectRatio: 'auto',
       resolutionTier: '1K',
 
       selectedGenerationId: null,
