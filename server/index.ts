@@ -57,6 +57,9 @@ Return a JSON object with this exact structure:
   ]
 }
 
+Only segment the specific object or region requested. The mask should be a binary PNG where white pixels (255) indicate the selected region and black pixels (0) indicate the background.`;
+}
+
 function buildImageConfig(aspectRatio?: string, resolutionTier?: string) {
   const imageConfig: Record<string, string> = {};
   if (aspectRatio && aspectRatio !== 'auto') {
@@ -66,9 +69,6 @@ function buildImageConfig(aspectRatio?: string, resolutionTier?: string) {
     imageConfig.imageSize = resolutionTier;
   }
   return Object.keys(imageConfig).length > 0 ? imageConfig : undefined;
-}
-
-Only segment the specific object or region requested. The mask should be a binary PNG where white pixels (255) indicate the selected region and black pixels (0) indicate the background.`;
 }
 
 // POST /api/generate - Generate images from prompt
