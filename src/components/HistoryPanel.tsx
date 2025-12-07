@@ -20,6 +20,7 @@ export const HistoryPanel: React.FC = () => {
     showHistory,
     setShowHistory,
     setCanvasImage,
+    setCanvasImages,
     selectedTool
   } = useAppStore();
 
@@ -164,8 +165,8 @@ export const HistoryPanel: React.FC = () => {
                 )}
                 onClick={() => {
                   selectGeneration(generation.id);
-                  if (generation.outputAssets[0]) {
-                    setCanvasImage(generation.outputAssets[0].url);
+                  if (generation.outputAssets.length > 0) {
+                    setCanvasImages(generation.outputAssets.map((asset) => asset.url));
                   }
                 }}
               >
@@ -201,8 +202,8 @@ export const HistoryPanel: React.FC = () => {
                     : 'border-gray-700 hover:border-gray-600'
                 )}
                 onClick={() => {
-                  if (edit.outputAssets[0]) {
-                    setCanvasImage(edit.outputAssets[0].url);
+                  if (edit.outputAssets.length > 0) {
+                    setCanvasImages(edit.outputAssets.map((asset) => asset.url));
                     selectEdit(edit.id);
                     selectGeneration(null);
                   }

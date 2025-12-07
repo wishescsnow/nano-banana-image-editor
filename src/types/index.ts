@@ -18,6 +18,7 @@ export interface Generation {
     height?: number;
     seed?: number;
     temperature?: number;
+    variantCount?: number;
   };
   sourceAssets: Asset[];
   outputAssets: Asset[];
@@ -81,6 +82,7 @@ export interface BatchQueueRequest {
   maskImage?: string;
   temperature?: number;
   seed?: number;
+   variantCount?: number;
   batchJobName?: string; // Gemini batch job name after submission
   status: 'pending' | 'submitted' | 'succeeded' | 'failed';
   resultImages?: string[];

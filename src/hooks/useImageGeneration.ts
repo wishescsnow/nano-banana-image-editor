@@ -21,12 +21,13 @@ export const useImageGeneration = () => {
   const {
     addGeneration,
     setIsGenerating,
-    setCanvasImage,
+    setCanvasImages,
     setCurrentProject,
     currentProject,
     selectedModel,
     aspectRatio,
-    resolutionTier
+    resolutionTier,
+    variantCount
   } = useAppStore();
 
   const generateMutation = useMutation({
@@ -38,7 +39,8 @@ export const useImageGeneration = () => {
         model: request.model ?? selectedModel,
         safetySettings,
         aspectRatio: request.aspectRatio ?? aspectRatio,
-        resolutionTier: request.resolutionTier ?? resolutionTier
+        resolutionTier: request.resolutionTier ?? resolutionTier,
+        variantCount: request.variantCount ?? variantCount
       });
       return images;
     },
@@ -71,7 +73,8 @@ export const useImageGeneration = () => {
             width: dimensions.width,
             height: dimensions.height,
             seed: request.seed,
-            temperature: request.temperature
+            temperature: request.temperature,
+            variantCount: request.variantCount ?? variantCount
           },
           sourceAssets: request.referenceImage ? [{
             id: generateId(),
@@ -96,7 +99,7 @@ export const useImageGeneration = () => {
         };
 
         addGeneration(generation);
-        setCanvasImage(outputAssets[0].url);
+        setCanvasImages(outputAssets.map(asset => asset.url));
         
         // Create project if none exists
         if (!currentProject) {
@@ -130,7 +133,7 @@ export const useImageEditing = () => {
   const {
     addEdit,
     setIsGenerating,
-    setCanvasImage,
+    setCanvasImages,
     canvasImage,
     editReferenceImages,
     brushStrokes,
@@ -141,11 +144,12 @@ export const useImageEditing = () => {
     selectedModel,
     uploadedImages,
     aspectRatio,
-    resolutionTier
+    resolutionTier,
+    variantCount
   } = useAppStore();
 
   const editMutation = useMutation({
-    mutationFn: async (instruction: string) => {
+    mutationFn: async ({ instruction, variantCount: requestedVariantCount }: { instruction: string; variantCount?: number }) => {
       // Get current safety settings at mutation time to avoid stale closure
       const { safetySettings } = useAppStore.getState();
       // Always use canvas image as primary target if available, otherwise use first uploaded image
@@ -256,7 +260,8 @@ export const useImageEditing = () => {
         model: selectedModel,
         safetySettings,
         aspectRatio,
-        resolutionTier
+        resolutionTier,
+        variantCount: requestedVariantCount ?? variantCount
       };
 
       const images = await geminiService.editImage(request);
@@ -265,7 +270,7 @@ export const useImageEditing = () => {
     onMutate: () => {
       setIsGenerating(true);
     },
-    onSuccess: ({ images, maskedReferenceImage }, instruction) => {
+    onSuccess: ({ images, maskedReferenceImage }, { instruction }) => {
       if (images.length > 0) {
         const outputAssets: Asset[] = images.map((base64, index) => ({
           id: generateId(),
@@ -302,7 +307,7 @@ export const useImageEditing = () => {
 
         // Automatically load the edited image in the canvas
         const { selectEdit, selectGeneration } = useAppStore.getState();
-        setCanvasImage(outputAssets[0].url);
+        setCanvasImages(outputAssets.map(asset => asset.url));
         selectEdit(edit.id);
         selectGeneration(null);
       }
@@ -315,7 +320,7 @@ export const useImageEditing = () => {
   });
 
   return {
-    edit: editMutation.mutate,
+    edit: (instruction: string, requestedVariantCount?: number) => editMutation.mutate({ instruction, variantCount: requestedVariantCount }),
     isEditing: editMutation.isPending,
     error: editMutation.error
   };

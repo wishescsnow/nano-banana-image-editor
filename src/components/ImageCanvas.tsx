@@ -2,12 +2,14 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Line } from 'react-konva';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from './ui/Button';
-import { ZoomIn, ZoomOut, RotateCcw, Download, Eye, EyeOff, Eraser } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Download, Eye, EyeOff, Eraser, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export const ImageCanvas: React.FC = () => {
   const {
     canvasImage,
+    canvasImages,
+    canvasImageIndex,
     canvasZoom,
     setCanvasZoom,
     canvasPan,
@@ -20,7 +22,8 @@ export const ImageCanvas: React.FC = () => {
     selectedTool,
     isGenerating,
     brushSize,
-    setBrushSize
+    setBrushSize,
+    setCanvasImageIndex
   } = useAppStore();
 
   const stageRef = useRef<any>(null);
@@ -172,6 +175,19 @@ export const ImageCanvas: React.FC = () => {
     }
   };
 
+  const hasVariants = canvasImages.length > 1;
+  const totalVariants = canvasImages.length || (canvasImage ? 1 : 0);
+
+  const handlePrevVariant = () => {
+    if (canvasImages.length === 0) return;
+    setCanvasImageIndex(canvasImageIndex - 1);
+  };
+
+  const handleNextVariant = () => {
+    if (canvasImages.length === 0) return;
+    setCanvasImageIndex(canvasImageIndex + 1);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -245,6 +261,20 @@ export const ImageCanvas: React.FC = () => {
         id="canvas-container" 
         className="overflow-hidden relative flex-1 bg-gray-800"
       >
+        {hasVariants && (
+          <div className="flex items-center space-x-2 absolute top-3 right-3 z-10 bg-gray-900/80 border border-gray-800 rounded-full px-2 py-1 backdrop-blur">
+            <Button variant="ghost" size="icon" onClick={handlePrevVariant} className="h-8 w-8">
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-xs text-gray-300 whitespace-nowrap">
+              {canvasImageIndex + 1} / {totalVariants}
+            </span>
+            <Button variant="ghost" size="icon" onClick={handleNextVariant} className="h-8 w-8">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+
         {!image && !isGenerating && (
           <div className="flex absolute inset-0 justify-center items-center">
             <div className="text-center">

@@ -11,14 +11,19 @@ export const QueuedRequestsPanel: React.FC = () => {
   const [queuedRequests, setQueuedRequests] = useState<BatchQueueRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { setCanvasImage, setCanvasZoom, setCanvasPan } = useAppStore();
+  const { setCanvasImage, setCanvasImages, setCanvasZoom, setCanvasPan } = useAppStore();
 
   // Helper to load image and reset canvas view
-  const loadImageToCanvas = (base64Data: string) => {
+  const loadImageToCanvas = (base64Data: string | string[]) => {
     // Reset zoom/pan so the new image is visible
     setCanvasZoom(1);
     setCanvasPan({ x: 0, y: 0 });
-    setCanvasImage(`data:image/png;base64,${base64Data}`);
+    if (Array.isArray(base64Data)) {
+      const urls = base64Data.map((data) => `data:image/png;base64,${data}`);
+      setCanvasImages(urls);
+    } else {
+      setCanvasImage(`data:image/png;base64,${base64Data}`);
+    }
   };
 
   const loadQueuedRequests = async () => {
@@ -40,7 +45,7 @@ export const QueuedRequestsPanel: React.FC = () => {
     // If already succeeded, load the result
     if (freshRequest.status === 'succeeded' && freshRequest.resultImages?.length) {
       console.log('Loading cached result image');
-      loadImageToCanvas(freshRequest.resultImages[0]);
+      loadImageToCanvas(freshRequest.resultImages);
       return;
     }
 
@@ -60,7 +65,7 @@ export const QueuedRequestsPanel: React.FC = () => {
 
           if (images.length > 0) {
             console.log('Loading newly fetched result image');
-            loadImageToCanvas(images[0]);
+            loadImageToCanvas(images);
           }
 
           loadQueuedRequests();
@@ -216,6 +221,14 @@ export const QueuedRequestsPanel: React.FC = () => {
               <p className="text-sm text-gray-300 line-clamp-2 mb-2">
                 {request.prompt}
               </p>
+
+              {/* Variant / image count */}
+              <div className="flex justify-between items-center text-[11px] text-gray-500 mb-2">
+                <span>
+                  Images: {request.resultImages ? `${request.resultImages.length}/${request.variantCount ?? 1}` : (request.variantCount ?? 1)}
+                </span>
+                <span className="text-gray-400">{request.type === 'generate' ? 'Generate' : 'Edit'}</span>
+              </div>
 
               {/* Result Preview */}
               {request.status === 'succeeded' && request.resultImages?.[0] && (

@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Textarea } from './ui/Textarea';
 import { Button } from './ui/Button';
 import { DropdownButton } from './ui/DropdownButton';
+import { Input } from './ui/Input';
 import { useAppStore } from '../store/useAppStore';
 import { useImageGeneration, useImageEditing } from '../hooks/useImageGeneration';
 import { Upload, Wand2, Edit3, MousePointer, HelpCircle, ChevronDown, ChevronRight, RotateCcw, Clock, Shield } from 'lucide-react';
@@ -59,12 +60,13 @@ export const PromptComposer: React.FC = () => {
     showPromptPanel,
     setShowPromptPanel,
     brushStrokes,
-    brushSize,
     clearBrushStrokes,
     aspectRatio,
     setAspectRatio,
     resolutionTier,
     setResolutionTier,
+    variantCount,
+    setVariantCount,
   } = useAppStore();
 
   const { generate } = useImageGeneration();
@@ -117,10 +119,11 @@ export const PromptComposer: React.FC = () => {
         temperature,
         seed: seed || undefined,
         aspectRatio,
-        resolutionTier
+        resolutionTier,
+        variantCount: 1
       });
     } else if (selectedTool === 'edit' || selectedTool === 'mask') {
-      edit(currentPrompt);
+      edit(currentPrompt, 1);
     }
   };
 
@@ -195,6 +198,7 @@ export const PromptComposer: React.FC = () => {
       maskImage,
       temperature,
       seed: seed || undefined,
+      variantCount,
       status: 'pending',
       createdAt: Date.now()
     };
@@ -215,6 +219,7 @@ export const PromptComposer: React.FC = () => {
           maskImage,
           temperature,
           seed: seed || undefined,
+          variantCount,
           model: selectedModel,
           safetySettings,
           aspectRatio,
@@ -228,6 +233,7 @@ export const PromptComposer: React.FC = () => {
           referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
           temperature,
           seed: seed || undefined,
+          variantCount,
           model: selectedModel,
           safetySettings,
           aspectRatio,
@@ -297,6 +303,7 @@ export const PromptComposer: React.FC = () => {
     setTemperature(0.7);
     setAspectRatio(DEFAULT_ASPECT_RATIO);
     setResolutionTier(DEFAULT_RESOLUTION_TIER);
+    setVariantCount(1);
     setShowClearConfirm(false);
   };
 
@@ -308,16 +315,16 @@ export const PromptComposer: React.FC = () => {
 
   if (!showPromptPanel) {
     return (
-      <div className="w-8 bg-gray-950 border-r border-gray-800 flex flex-col items-center justify-center">
+      <div className="flex flex-col justify-center items-center w-8 border-r border-gray-800 bg-gray-950">
         <button
           onClick={() => setShowPromptPanel(true)}
-          className="w-6 h-16 bg-gray-800 hover:bg-gray-700 rounded-r-lg border border-l-0 border-gray-700 flex items-center justify-center transition-colors group"
+          className="flex justify-center items-center w-6 h-16 bg-gray-800 rounded-r-lg border border-l-0 border-gray-700 transition-colors hover:bg-gray-700 group"
           title="Show Prompt Panel"
         >
           <div className="flex flex-col space-y-1">
-            <div className="w-1 h-1 bg-gray-500 group-hover:bg-gray-400 rounded-full"></div>
-            <div className="w-1 h-1 bg-gray-500 group-hover:bg-gray-400 rounded-full"></div>
-            <div className="w-1 h-1 bg-gray-500 group-hover:bg-gray-400 rounded-full"></div>
+            <div className="w-1 h-1 bg-gray-500 rounded-full group-hover:bg-gray-400"></div>
+            <div className="w-1 h-1 bg-gray-500 rounded-full group-hover:bg-gray-400"></div>
+            <div className="w-1 h-1 bg-gray-500 rounded-full group-hover:bg-gray-400"></div>
           </div>
         </button>
       </div>
@@ -326,24 +333,24 @@ export const PromptComposer: React.FC = () => {
 
   return (
     <>
-      <div className="w-80 lg:w-72 xl:w-80 h-full bg-gray-950 border-r border-gray-800 p-6 flex flex-col space-y-6 overflow-y-auto">
+      <div className="flex overflow-y-auto flex-col p-6 space-y-6 w-80 h-full border-r border-gray-800 lg:w-72 xl:w-80 bg-gray-950">
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-medium text-gray-300">Mode</h3>
             <div className="flex items-center space-x-1">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowHintsModal(true)}
-                className="h-6 w-6"
+                className="w-6 h-6"
               >
-                <HelpCircle className="h-4 w-4" />
+                <HelpCircle className="w-4 h-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowPromptPanel(false)}
-                className="h-6 w-6"
+                className="w-6 h-6"
                 title="Hide Prompt Panel"
               >
                 ×
@@ -362,7 +369,7 @@ export const PromptComposer: React.FC = () => {
                     : 'bg-gray-900 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-300'
                 )}
               >
-                <tool.icon className="h-5 w-5 mb-1" />
+                <tool.icon className="mb-1 w-5 h-5" />
                 <span className="text-xs font-medium">{tool.label}</span>
               </button>
             ))}
@@ -372,17 +379,17 @@ export const PromptComposer: React.FC = () => {
         {/* File Upload */}
         <div>
           <div>
-            <label className="text-sm font-medium text-gray-300 mb-1 block">
+            <label className="block mb-1 text-sm font-medium text-gray-300">
               {selectedTool === 'generate' ? 'Reference Images' : selectedTool === 'edit' ? 'Style References' : 'Upload Image'}
             </label>
             {selectedTool === 'mask' && (
-              <p className="text-xs text-gray-400 mb-3">Edit an image with masks</p>
+              <p className="mb-3 text-xs text-gray-400">Edit an image with masks</p>
             )}
             {selectedTool === 'generate' && (
-              <p className="text-xs text-gray-500 mb-3">Optional, up to 10 images</p>
+              <p className="mb-3 text-xs text-gray-500">Optional, up to 10 images</p>
             )}
             {selectedTool === 'edit' && (
-              <p className="text-xs text-gray-500 mb-3">
+              <p className="mb-3 text-xs text-gray-500">
                 {canvasImage ? 'Optional style references, up to 10 images' : 'Upload image to edit, up to 10 images'}
               </p>
             )}
@@ -402,7 +409,7 @@ export const PromptComposer: React.FC = () => {
                 (selectedTool === 'edit' && editReferenceImages.length >= 10)
               }
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <Upload className="mr-2 w-4 h-4" />
               Upload
             </Button>
 
@@ -415,15 +422,15 @@ export const PromptComposer: React.FC = () => {
                       <img
                         src={image}
                         alt={`Reference ${index + 1}`}
-                        className="w-full h-20 object-cover rounded-lg border border-gray-700"
+                        className="object-cover w-full h-20 rounded-lg border border-gray-700"
                       />
                       <button
                         onClick={() => selectedTool === 'generate' ? removeUploadedImage(index) : removeEditReferenceImage(index)}
-                        className="absolute top-1 right-1 bg-gray-900/80 text-gray-400 hover:text-gray-200 rounded-full p-1 transition-colors"
+                        className="absolute top-1 right-1 p-1 text-gray-400 rounded-full transition-colors bg-gray-900/80 hover:text-gray-200"
                       >
                         ×
                       </button>
-                      <div className="absolute bottom-1 left-1 bg-gray-900/80 text-xs px-2 py-1 rounded text-gray-300">
+                      <div className="absolute bottom-1 left-1 px-2 py-1 text-xs text-gray-300 rounded bg-gray-900/80">
                         Ref {index + 1}
                       </div>
                     </div>
@@ -435,7 +442,7 @@ export const PromptComposer: React.FC = () => {
 
         {/* Prompt Input */}
         <div>
-          <label className="text-sm font-medium text-gray-300 mb-3 block">
+          <label className="block mb-3 text-sm font-medium text-gray-300">
             {selectedTool === 'generate' ? 'Describe what you want to create' : 'Describe your changes'}
           </label>
           <Textarea
@@ -452,10 +459,10 @@ export const PromptComposer: React.FC = () => {
           {/* Prompt Quality Indicator */}
           <button
             onClick={() => setShowHintsModal(true)}
-            className="mt-2 flex items-center text-xs hover:text-gray-400 transition-colors group"
+            className="flex items-center mt-2 text-xs transition-colors hover:text-gray-400 group"
           >
             {currentPrompt.length < 20 ? (
-              <HelpCircle className="h-3 w-3 mr-2 text-red-500 group-hover:text-red-400" />
+              <HelpCircle className="mr-2 w-3 h-3 text-red-500 group-hover:text-red-400" />
             ) : (
               <div className={cn(
                 'h-2 w-2 rounded-full mr-2',
@@ -478,19 +485,19 @@ export const PromptComposer: React.FC = () => {
             {
               id: 'queue-batch',
               label: 'Queue for Batch (50% cost)',
-              icon: <Clock className="h-4 w-4" />,
+              icon: <Clock className="w-4 h-4" />,
               onClick: handleQueueForBatch
             }
           ]}
         >
           {isGenerating ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2" />
+              <div className="mr-2 w-4 h-4 rounded-full border-b-2 border-gray-900 animate-spin" />
               Generating...
             </>
           ) : (
             <>
-              <Wand2 className="h-4 w-4 mr-2" />
+              <Wand2 className="mr-2 w-4 h-4" />
               {selectedTool === 'generate' ? 'Generate' : 'Apply Edit'}
             </>
           )}
@@ -500,15 +507,15 @@ export const PromptComposer: React.FC = () => {
         <div>
           <button
             onClick={() => setShowClearConfirm(!showClearConfirm)}
-            className="flex items-center text-sm text-gray-400 hover:text-red-400 transition-colors duration-200 mb-4"
+            className="flex items-center mb-4 text-sm text-gray-400 transition-colors duration-200 hover:text-red-400"
           >
-            <RotateCcw className="h-4 w-4 mr-2" />
+            <RotateCcw className="mr-2 w-4 h-4" />
             Clear Session
           </button>
 
           {showClearConfirm && (
-            <div className="mt-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
-              <p className="text-xs text-gray-300 mb-3">
+            <div className="p-3 mt-3 bg-gray-800 rounded-lg border border-gray-700">
+              <p className="mb-3 text-xs text-gray-300">
                 Are you sure you want to clear this session? This will remove all uploads, prompts, and canvas content.
               </p>
               <div className="flex space-x-2">
@@ -534,9 +541,9 @@ export const PromptComposer: React.FC = () => {
 
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center text-sm text-gray-400 hover:text-gray-300 transition-colors duration-200"
+            className="flex items-center text-sm text-gray-400 transition-colors duration-200 hover:text-gray-300"
           >
-            {showAdvanced ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+            {showAdvanced ? <ChevronDown className="mr-1 w-4 h-4" /> : <ChevronRight className="mr-1 w-4 h-4" />}
             {showAdvanced ? 'Hide' : 'Show'} Advanced Controls
           </button>
 
@@ -544,13 +551,13 @@ export const PromptComposer: React.FC = () => {
             <div className="mt-4 space-y-4">
               {/* Model */}
               <div>
-                <label className="text-xs text-gray-400 mb-2 block">
+                <label className="block mb-2 text-xs text-gray-400">
                   Model
                 </label>
                 <select
                   value={selectedModel}
                   onChange={(e) => handleModelChange(e.target.value)}
-                  className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
+                  className="px-2 w-full h-8 text-xs text-gray-100 bg-gray-900 rounded border border-gray-700"
                 >
                   {MODEL_OPTIONS.map((opt) => (
                     <option key={opt.model} value={opt.model}>{opt.name}</option>
@@ -560,13 +567,13 @@ export const PromptComposer: React.FC = () => {
 
               {/* Aspect Ratio */}
               <div>
-                <label className="text-xs text-gray-400 mb-2 block">
+                <label className="block mb-2 text-xs text-gray-400">
                   Aspect Ratio
                 </label>
                 <select
                   value={aspectRatio}
                   onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
-                  className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
+                  className="px-2 w-full h-8 text-xs text-gray-100 bg-gray-900 rounded border border-gray-700"
                 >
                   {ASPECT_RATIOS.map((ratio) => (
                     <option key={ratio} value={ratio}>{ratio}</option>
@@ -576,8 +583,8 @@ export const PromptComposer: React.FC = () => {
 
               {/* Resolution */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-gray-400 block">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs text-gray-400">
                     Resolution Tier
                   </label>
                   {isFlashModel && (
@@ -609,7 +616,7 @@ export const PromptComposer: React.FC = () => {
 
               {/* Temperature */}
               <div>
-                <label className="text-xs text-gray-400 mb-2 block">
+                <label className="block mb-2 text-xs text-gray-400">
                   Creativity ({temperature})
                 </label>
                 <input
@@ -625,7 +632,7 @@ export const PromptComposer: React.FC = () => {
 
               {/* Seed */}
               <div>
-                <label className="text-xs text-gray-400 mb-2 block">
+                <label className="block mb-2 text-xs text-gray-400">
                   Seed (optional)
                 </label>
                 <input
@@ -633,30 +640,59 @@ export const PromptComposer: React.FC = () => {
                   value={seed || ''}
                   onChange={(e) => setSeed(e.target.value ? parseInt(e.target.value) : null)}
                   placeholder="Random"
-                  className="w-full h-8 px-2 bg-gray-900 border border-gray-700 rounded text-xs text-gray-100"
+                  className="px-2 w-full h-8 text-xs text-gray-100 bg-gray-900 rounded border border-gray-700"
                 />
+              </div>
+
+              {/* Batch Settings */}
+              <div className="pt-4 border-t border-gray-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-gray-300">Batch settings</span>
+                  <span className="text-[10px] text-gray-500">Applies to queue only</span>
+                </div>
+
+                {/* Variants (batch only) */}
+                <div>
+                  <label className="block mb-2 text-xs text-gray-400">
+                    Variants (min 1)
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={variantCount}
+                    onChange={(e) => {
+                      const value = Math.max(1, parseInt(e.target.value || '1', 10));
+                      setVariantCount(value);
+                    }}
+                    className="px-2 w-full h-8 text-xs text-gray-100 bg-gray-900 rounded border border-gray-700"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Used for batch queue; realtime uses 1 image.
+                  </p>
+                </div>
               </div>
 
               {/* Safety Settings */}
               <div className="pt-4 border-t border-gray-800">
                 <button
                   onClick={() => setShowSafetySettings(!showSafetySettings)}
-                  className="flex items-center w-full text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                  className="flex items-center w-full text-xs text-gray-400 transition-colors hover:text-gray-300"
                 >
-                  <Shield className="h-4 w-4 mr-2" />
+                  <Shield className="mr-2 w-4 h-4" />
                   <span className="flex-1 text-left">Safety Settings</span>
-                  {showSafetySettings ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {showSafetySettings ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                 </button>
 
                 {showSafetySettings && (
-                  <div className="mt-3 p-3 bg-gray-900/50 rounded-lg border border-gray-800 space-y-4">
+                  <div className="p-3 mt-3 space-y-4 rounded-lg border border-gray-800 bg-gray-900/50">
                     <p className="text-xs text-gray-500">
                       Adjust how likely you are to see responses that could be harmful.
                     </p>
 
                     {safetySettings.map((setting) => (
                       <div key={setting.category}>
-                        <div className="flex items-center justify-between mb-1">
+                        <div className="flex justify-between items-center mb-1">
                           <label className="text-xs text-gray-400">
                             {CATEGORY_LABELS[setting.category]}
                           </label>
@@ -678,7 +714,7 @@ export const PromptComposer: React.FC = () => {
 
                     <button
                       onClick={resetSafetySettings}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                      className="text-xs text-indigo-400 transition-colors hover:text-indigo-300"
                     >
                       Reset defaults
                     </button>
@@ -691,7 +727,7 @@ export const PromptComposer: React.FC = () => {
 
         {/* Keyboard Shortcuts */}
         <div className="pt-4 border-t border-gray-800">
-          <h4 className="text-xs font-medium text-gray-400 mb-2">Shortcuts</h4>
+          <h4 className="mb-2 text-xs font-medium text-gray-400">Shortcuts</h4>
           <div className="space-y-1 text-xs text-gray-500">
             <div className="flex justify-between">
               <span>Generate</span>

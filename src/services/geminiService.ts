@@ -82,6 +82,7 @@ export interface GenerationRequest {
   referenceImages?: string[]; // base64 array
   temperature?: number;
   seed?: number;
+  variantCount?: number;
   model?: string;
   safetySettings?: SafetySetting[];
   aspectRatio?: AspectRatio;
@@ -95,6 +96,7 @@ export interface EditRequest {
   maskImage?: string; // base64
   temperature?: number;
   seed?: number;
+  variantCount?: number;
   model?: string;
   safetySettings?: SafetySetting[];
   aspectRatio?: AspectRatio;
@@ -121,6 +123,7 @@ export class GeminiService {
         referenceImages: request.referenceImages,
         temperature: request.temperature,
         seed: request.seed,
+        variantCount: request.variantCount,
         model: request.model ?? DEFAULT_MODEL,
         safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
         aspectRatio: request.aspectRatio,
@@ -142,6 +145,7 @@ export class GeminiService {
         maskImage: request.maskImage,
         temperature: request.temperature,
         seed: request.seed,
+        variantCount: request.variantCount,
         model: request.model ?? DEFAULT_MODEL,
         safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
         aspectRatio: request.aspectRatio,
@@ -181,6 +185,7 @@ export class GeminiService {
         referenceImages: request.referenceImages,
         temperature: request.temperature,
         seed: request.seed,
+        variantCount: request.variantCount,
         model: request.model ?? DEFAULT_MODEL,
         safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
         aspectRatio: request.aspectRatio,
@@ -201,6 +206,7 @@ export class GeminiService {
         maskImage: request.maskImage,
         temperature: request.temperature,
         seed: request.seed,
+        variantCount: request.variantCount,
         model: request.model ?? DEFAULT_MODEL,
         safetySettings: request.safetySettings ?? DEFAULT_SAFETY_SETTINGS,
         aspectRatio: request.aspectRatio,

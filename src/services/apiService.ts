@@ -7,6 +7,7 @@ export interface GenerateRequest {
   referenceImages?: string[];
   temperature?: number;
   seed?: number;
+  variantCount?: number;
   model?: string;
   safetySettings?: SafetySetting[];
   aspectRatio?: AspectRatio;
@@ -20,6 +21,7 @@ export interface EditRequest {
   maskImage?: string;
   temperature?: number;
   seed?: number;
+  variantCount?: number;
   model?: string;
   safetySettings?: SafetySetting[];
   aspectRatio?: AspectRatio;

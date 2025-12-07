@@ -16,6 +16,8 @@ interface AppState {
 
   // Canvas state
   canvasImage: string | null;
+  canvasImages: string[];
+  canvasImageIndex: number;
   canvasZoom: number;
   canvasPan: { x: number; y: number };
 
@@ -37,6 +39,7 @@ interface AppState {
   safetySettings: SafetySetting[];
   aspectRatio: AspectRatio;
   resolutionTier: ResolutionTier;
+  variantCount: number;
 
   // History and variants
   selectedGenerationId: string | null;
@@ -52,6 +55,8 @@ interface AppState {
   // Actions
   setCurrentProject: (project: Project | null) => void;
   setCanvasImage: (url: string | null) => void;
+  setCanvasImages: (urls: string[]) => void;
+  setCanvasImageIndex: (index: number) => void;
   setCanvasZoom: (zoom: number) => void;
   setCanvasPan: (pan: { x: number; y: number }) => void;
 
@@ -75,6 +80,7 @@ interface AppState {
   setSelectedModel: (model: string) => void;
   setAspectRatio: (aspectRatio: AspectRatio) => void;
   setResolutionTier: (tier: ResolutionTier) => void;
+  setVariantCount: (count: number) => void;
   setSafetyThreshold: (category: HarmCategory, threshold: SafetySetting['threshold']) => void;
   resetSafetySettings: () => void;
 
@@ -95,6 +101,8 @@ export const useAppStore = create<AppState>()(
       // Initial state
       currentProject: null,
       canvasImage: null,
+      canvasImages: [],
+      canvasImageIndex: 0,
       canvasZoom: 1,
       canvasPan: { x: 0, y: 0 },
 
@@ -113,6 +121,7 @@ export const useAppStore = create<AppState>()(
       safetySettings: DEFAULT_SAFETY_SETTINGS,
       aspectRatio: 'auto',
       resolutionTier: '1K',
+      variantCount: 1,
 
       selectedGenerationId: null,
       selectedEditId: null,
@@ -124,7 +133,25 @@ export const useAppStore = create<AppState>()(
 
       // Actions
       setCurrentProject: (project) => set({ currentProject: project }),
-      setCanvasImage: (url) => set({ canvasImage: url }),
+      setCanvasImage: (url) => set({
+        canvasImage: url,
+        canvasImages: url ? [url] : [],
+        canvasImageIndex: 0
+      }),
+      setCanvasImages: (urls) => set({
+        canvasImages: urls,
+        canvasImage: urls[0] ?? null,
+        canvasImageIndex: 0
+      }),
+      setCanvasImageIndex: (index) => set((state) => {
+        if (state.canvasImages.length === 0) return state;
+        const len = state.canvasImages.length;
+        const nextIndex = ((index % len) + len) % len;
+        return {
+          canvasImageIndex: nextIndex,
+          canvasImage: state.canvasImages[nextIndex]
+        };
+      }),
       setCanvasZoom: (zoom) => set({ canvasZoom: zoom }),
       setCanvasPan: (pan) => set({ canvasPan: pan }),
 
@@ -161,6 +188,7 @@ export const useAppStore = create<AppState>()(
       })),
       setAspectRatio: (aspectRatio) => set({ aspectRatio }),
       setResolutionTier: (tier) => set({ resolutionTier: tier }),
+      setVariantCount: (count) => set({ variantCount: Math.max(1, Math.floor(count)) }),
       setSafetyThreshold: (category, threshold) => set((state) => ({
         safetySettings: state.safetySettings.map((s) =>
           s.category === category ? { ...s, threshold } : s

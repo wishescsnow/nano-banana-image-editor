@@ -74,7 +74,7 @@ function buildImageConfig(aspectRatio?: string, resolutionTier?: string) {
 // POST /api/generate - Generate images from prompt
 app.post('/api/generate', async (req, res) => {
   try {
-    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier, variantCount } = req.body;
 
     const contents: any[] = [];
     const config: Record<string, unknown> = {
@@ -86,6 +86,9 @@ app.post('/api/generate', async (req, res) => {
     }
     if (seed !== undefined) {
       config.seed = seed;
+    }
+    if (variantCount !== undefined) {
+      config.candidateCount = Math.max(1, Number(variantCount) || 1);
     }
     const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
     if (imageConfig) {
@@ -134,7 +137,7 @@ app.post('/api/generate', async (req, res) => {
 // POST /api/edit - Edit an existing image
 app.post('/api/edit', async (req, res) => {
   try {
-    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier, variantCount } = req.body;
 
     const contents: any[] = [];
     const config: Record<string, unknown> = {
@@ -146,6 +149,9 @@ app.post('/api/edit', async (req, res) => {
     }
     if (seed !== undefined) {
       config.seed = seed;
+    }
+    if (variantCount !== undefined) {
+      config.candidateCount = Math.max(1, Number(variantCount) || 1);
     }
     const imageConfig = buildImageConfig(aspectRatio, resolutionTier);
     if (imageConfig) {
@@ -272,7 +278,7 @@ app.post('/api/segment', async (req, res) => {
 // POST /api/batch/generate - Submit batch generation request
 app.post('/api/batch/generate', async (req, res) => {
   try {
-    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+    const { prompt, referenceImages, temperature, seed, model, safetySettings, aspectRatio, resolutionTier, variantCount } = req.body;
 
     const contents: any[] = [];
 
@@ -308,13 +314,14 @@ app.post('/api/batch/generate', async (req, res) => {
       inlinedConfig.imageConfig = imageConfig;
     }
 
-    const inlinedRequests = [{
+    const requestCount = Math.max(1, Number(variantCount) || 1);
+    const inlinedRequests = Array.from({ length: requestCount }, () => ({
       contents: [{
         parts: contents,
         role: 'user' as const
       }],
       config: inlinedConfig,
-    }];
+    }));
 
     const response = await genAI.batches.create({
       model: model ?? DEFAULT_MODEL,
@@ -334,7 +341,7 @@ app.post('/api/batch/generate', async (req, res) => {
 // POST /api/batch/edit - Submit batch edit request
 app.post('/api/batch/edit', async (req, res) => {
   try {
-    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier } = req.body;
+    const { instruction, originalImage, referenceImages, maskImage, temperature, seed, model, safetySettings, aspectRatio, resolutionTier, variantCount } = req.body;
 
     const contents: any[] = [];
 
@@ -386,13 +393,14 @@ app.post('/api/batch/edit', async (req, res) => {
       inlinedConfig.imageConfig = imageConfig;
     }
 
-    const inlinedRequests = [{
+    const requestCount = Math.max(1, Number(variantCount) || 1);
+    const inlinedRequests = Array.from({ length: requestCount }, () => ({
       contents: [{
         parts: contents,
         role: 'user' as const
       }],
       config: inlinedConfig,
-    }];
+    }));
 
     const response = await genAI.batches.create({
       model: model ?? DEFAULT_MODEL,
