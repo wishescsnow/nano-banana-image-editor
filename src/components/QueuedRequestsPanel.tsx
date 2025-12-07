@@ -153,6 +153,14 @@ export const QueuedRequestsPanel: React.FC = () => {
     }
   };
 
+  const formatTimestamp = (ts: number) =>
+    new Date(ts).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+
   const renderTypeChip = (type: BatchQueueRequest['type']) => {
     const baseClasses =
       'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border';
@@ -262,9 +270,8 @@ export const QueuedRequestsPanel: React.FC = () => {
               )}
 
               {/* Timestamp */}
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                {renderTypeChip(request.type)}
-                <span>{new Date(request.createdAt).toLocaleTimeString()}</span>
+              <div className="flex justify-end text-xs text-gray-500 mt-2">
+                <span>{formatTimestamp(request.createdAt)}</span>
               </div>
             </div>
           ))}
