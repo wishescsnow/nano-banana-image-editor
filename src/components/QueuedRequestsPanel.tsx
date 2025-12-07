@@ -153,6 +153,21 @@ export const QueuedRequestsPanel: React.FC = () => {
     }
   };
 
+  const renderTypeChip = (type: BatchQueueRequest['type']) => {
+    const baseClasses =
+      'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border';
+    const variantClasses =
+      type === 'generate'
+        ? 'bg-yellow-500/10 text-yellow-200 border-yellow-400/30'
+        : 'bg-blue-500/10 text-blue-200 border-blue-400/30';
+
+    return (
+      <span className={`${baseClasses} ${variantClasses}`}>
+        {type === 'generate' ? 'Generate' : 'Edit'}
+      </span>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -227,7 +242,7 @@ export const QueuedRequestsPanel: React.FC = () => {
                 <span>
                   Images: {request.resultImages ? `${request.resultImages.length}/${request.variantCount ?? 1}` : (request.variantCount ?? 1)}
                 </span>
-                <span className="text-gray-400">{request.type === 'generate' ? 'Generate' : 'Edit'}</span>
+                {renderTypeChip(request.type)}
               </div>
 
               {/* Result Preview */}
@@ -248,7 +263,7 @@ export const QueuedRequestsPanel: React.FC = () => {
 
               {/* Timestamp */}
               <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>{request.type === 'generate' ? 'Generate' : 'Edit'}</span>
+                {renderTypeChip(request.type)}
                 <span>{new Date(request.createdAt).toLocaleTimeString()}</span>
               </div>
             </div>
