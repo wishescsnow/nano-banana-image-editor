@@ -13,20 +13,20 @@ export const Header: React.FC = () => {
           <div className="flex items-center space-x-2">
             <div className="text-2xl">🍌</div>
             <h1 className="text-xl font-semibold text-gray-100 hidden md:block">
-              Nano Banana AI Image Editor
+              Nano Banana + Veo
             </h1>
             <h1 className="text-xl font-semibold text-gray-100 md:hidden">
-              NB Editor
+              NB + Veo
             </h1>
           </div>
           <div className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">
-            1.0
+            1.1
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={() => setShowInfoModal(true)}
           >
@@ -34,7 +34,7 @@ export const Header: React.FC = () => {
           </Button>
         </div>
       </header>
-      
+
       <InfoModal open={showInfoModal} onOpenChange={setShowInfoModal} />
     </>
   );

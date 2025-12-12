@@ -1,18 +1,11 @@
-# 🍌 Nano Banana AI Image Editor 
-Release Version: (v1.0)
+# 🍌 Nano Banana + Veo 3.x Media Editor
+Release Version: (v1.1)
 
-### **⏬ Get Your 1-Click Install Copy + Instant Access to More Project Downloads, Vibe Coding Courses, Live Sessions, Community & More!** 
-Join the [Vibe Coding is Life Skool Community](https://www.skool.com/vibe-coding-is-life/about?ref=456537abaf37491cbcc6976f3c26af41) and get a **1-click ⚡Bolt.new installation clone**  of this app, plus access to live build sessions, exclusive project downloads, AI prompts, masterclasses, and the best vibe coding community on the web!
+**AI Image & Video Generation Platform**
 
----
-
-**Professional AI Image Generation & Conversational Editing Platform**
-
-A production-ready React + TypeScript application for delightful image generation and conversational, region-aware revisions using Google's Gemini 3.0 Pro Image model. Built with modern web technologies and designed for both creators and developers.
+A React + TypeScript application for AI-powered image and video generation using Google's Gemini 3.0 Pro Image model and Veo 3.x video models. Features text-to-image/video generation, conversational image editing with region-aware masks, video interpolation, and batch API queue for cost savings.
 
 [![Nano Banana Image Editor](https://getsmartgpt.com/nano-banana-editor.jpg)](https://nanobananaeditor.dev)
-
-🍌 [Try the LIVE Demo](https://nanobananaeditor.dev) - **NOTE**: Due to high demand, free credits are no longer available.
 
 ## ✨ Key Features
 
@@ -40,8 +33,16 @@ A production-ready React + TypeScript application for delightful image generatio
 - **Full Undo/Redo** - Complete generation tree with branching history
 - **Asset Management** - Organized storage of all generated content
 
+### 🎬 **Video Generation (Veo 3.x)**
+- **Text-to-Video** - Generate videos from descriptive prompts
+- **Image-to-Video** - Use a start frame to guide video generation
+- **Video Interpolation** - Provide first and last frames to generate in-between motion
+- **Video Extension** - Extend existing videos with AI-generated content
+- **Multiple Models** - Support for Veo 3.0 and 3.1 (standard and fast variants)
+- **Video Controls** - Full playback controls with timeline, mute, and download
+
 ### ⏱️ **Batch API Queue (50% Cost Savings)**
-- **Queue for Batch** - Submit requests to Gemini Batch API at half the cost
+- **Queue for Batch** - Submit image requests to Gemini Batch API at half the cost
 - **Background Processing** - Requests process asynchronously (up to 24hr turnaround)
 - **Persistent Queue** - Queued requests saved to IndexedDB, survive page refreshes
 - **Status Tracking** - Monitor pending, processing, completed, and failed jobs
@@ -133,40 +134,42 @@ A production-ready React + TypeScript application for delightful image generatio
 ### Tech Stack
 - **Frontend**: React 18, TypeScript, Tailwind CSS
 - **Backend**: Express.js API middleware (keeps API keys secure)
-- **State Management**: Zustand for app state, React Query for server state  
+- **State Management**: Zustand for app state, React Query for server state
 - **Canvas**: Konva.js for interactive image display and mask overlays
-- **AI Integration**: Google Generative AI SDK (Gemini 3.0 Pro Image)
+- **AI Integration**: Google Generative AI SDK (Gemini 3.0 Pro Image, Veo 3.x Video)
 - **Storage**: IndexedDB for offline asset caching
 - **Build Tool**: Vite for fast development and optimized builds
 
 ### Project Structure
 ```
 ├── server/              # Express API middleware
-│   └── index.ts            # API endpoints for Gemini calls
+│   └── index.ts            # API endpoints for Gemini/Veo calls
 ├── src/
 │   ├── components/          # React components
 │   │   ├── ui/             # Reusable UI components (Button, Input, DropdownButton, etc.)
 │   │   ├── PromptComposer.tsx  # Prompt input and tool selection
-│   │   ├── ImageCanvas.tsx     # Interactive canvas with Konva
+│   │   ├── ImageCanvas.tsx     # Interactive canvas with Konva (images and videos)
+│   │   ├── VideoToolbar.tsx    # Video playback controls
 │   │   ├── HistoryPanel.tsx    # Tabbed panel for history and queue
-│   │   ├── QueuedRequestsPanel.tsx # Batch API queue management
+│   │   ├── QueuedRequestsPanel.tsx # Batch API and video queue management
 │   │   ├── Header.tsx          # App header and navigation
 │   │   └── InfoModal.tsx       # About modal with links
 │   ├── services/           # External service integrations
 │   │   ├── apiService.ts       # HTTP client for backend API
-│   │   ├── geminiService.ts    # Gemini service facade
+│   │   ├── geminiService.ts    # Gemini/Veo service facade
 │   │   ├── cacheService.ts     # IndexedDB caching layer
 │   │   └── imageProcessing.ts  # Image manipulation utilities
 │   ├── store/              # Zustand state management
-│   │   └── useAppStore.ts      # Global application state
+│   │   └── useAppStore.ts      # Global application state (image + video)
 │   ├── hooks/              # Custom React hooks
-│   │   ├── useImageGeneration.ts  # Generation and editing logic
+│   │   ├── useImageGeneration.ts  # Image generation and editing logic
+│   │   ├── useVideoGeneration.ts  # Video generation with polling
 │   │   └── useKeyboardShortcuts.ts # Keyboard navigation
 │   ├── utils/              # Utility functions
 │   │   ├── cn.ts              # Class name utility
 │   │   └── imageUtils.ts      # Image processing helpers
 │   └── types/              # TypeScript type definitions
-│       └── index.ts           # Core type definitions
+│       └── index.ts           # Core type definitions (image, video, requests)
 ```
 
 ## 🔧 Configuration
@@ -203,8 +206,6 @@ npm run lint        # Run ESLint
 
 ## 📄 License & Copyright
 
-**Copyright © 2025 [Mark Fulton](https://markfulton.com)**
-
 This project is licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0).
 
 ### What this means:
@@ -227,11 +228,9 @@ We welcome contributions! Please:
 
 ## 🔗 Links & Resources
 
-- **Creator**: [Mark Fulton](https://markfulton.com)
-- **AI Training Program**: [Reinventing.AI](https://www.reinventing.ai/)
-- **Community**: [Vibe Coding is Life Skool](https://www.skool.com/vibe-coding-is-life/about?ref=456537abaf37491cbcc6976f3c26af41)
 - **Google AI Studio**: [Get your API key](https://aistudio.google.com/)
 - **Gemini API Docs**: [Official Documentation](https://ai.google.dev/gemini-api/docs)
+- **Veo API Docs**: [Video Generation](https://ai.google.dev/gemini-api/docs/video)
 - **Batch API Docs**: [50% Cost Savings](https://ai.google.dev/gemini-api/docs/batch-api)
 
 ## 🐛 Known Issues & Limitations
@@ -244,6 +243,8 @@ We welcome contributions! Please:
 
 - [x] Batch API integration for 50% cost savings
 - [x] Backend API proxy implementation
+- [x] Video generation with Veo 3.x models
+- [x] Video interpolation and extension
 - [ ] User authentication and project sharing
 - [ ] Advanced brush tools and selection methods
 - [ ] Plugin system for custom filters
@@ -251,4 +252,4 @@ We welcome contributions! Please:
 
 ---
 
-**Original Fork & Built by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 2.5 Flash Image** | **Made with Bolt.new** | **Enhancement to support Gemini 3.0 Pro Image with Batch API capabilities by [wishescsnow](https://github.com/wishescsnow).**
+**Maintained by [wishescsnow](https://github.com/wishescsnow)** | **Originally created by [Mark Fulton](https://markfulton.com)** | **Powered by Gemini 3.0 Pro Image & Veo 3.x**

@@ -1,44 +1,17 @@
-import { AspectRatio, ResolutionTier, SafetySetting } from '../types';
+import {
+  GenerateRequest,
+  EditRequest,
+  SegmentRequest,
+  SegmentResponse,
+  VideoGenerateRequest,
+  VideoOperationStatus,
+  VideoResult,
+} from '../types';
+
+// Re-export types for backward compatibility
+export type { GenerateRequest, EditRequest, SegmentRequest, SegmentResponse, VideoGenerateRequest, VideoOperationStatus, VideoResult };
 
 const API_BASE = '/api';
-
-export interface GenerateRequest {
-  prompt: string;
-  referenceImages?: string[];
-  temperature?: number;
-  seed?: number;
-  variantCount?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
-
-export interface EditRequest {
-  instruction: string;
-  originalImage: string;
-  referenceImages?: string[];
-  maskImage?: string;
-  temperature?: number;
-  seed?: number;
-  variantCount?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
-
-export interface SegmentRequest {
-  query: string;
-  image?: string;
-  maskImage?: string;
-  temperature?: number;
-  seed?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -67,7 +40,7 @@ export const apiService = {
     return handleResponse(response);
   },
 
-  async segmentImage(request: SegmentRequest): Promise<any> {
+  async segmentImage(request: SegmentRequest): Promise<SegmentResponse> {
     const response = await fetch(`${API_BASE}/segment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -117,4 +90,31 @@ export const apiService = {
     });
     return handleResponse(response);
   },
+
+  // Video generation API methods
+  async generateVideo(request: VideoGenerateRequest): Promise<{ operationName: string; model: string }> {
+    const response = await fetch(`${API_BASE}/video/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return handleResponse(response);
+  },
+
+  async getVideoOperationStatus(operationName: string): Promise<VideoOperationStatus> {
+    const response = await fetch(`${API_BASE}/video/operation/status?name=${encodeURIComponent(operationName)}`, {
+      method: 'GET',
+    });
+    return handleResponse(response);
+  },
+
+  async getVideoOperationResult(operationName: string): Promise<VideoResult> {
+    const response = await fetch(`${API_BASE}/video/operation/result?name=${encodeURIComponent(operationName)}`, {
+      method: 'GET',
+    });
+    return handleResponse(response);
+  },
+
+  // Note: Video generation does not support batch API.
+  // Use generateVideo() which returns an operation name for polling.
 };

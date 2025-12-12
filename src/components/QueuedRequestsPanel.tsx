@@ -1,20 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { Clock, CheckCircle2, XCircle, Loader2, Trash2, RefreshCw, Copy } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, Loader2, Trash2, RefreshCw, Copy, Video, Play } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { CacheService } from '../services/cacheService';
 import { geminiService } from '../services/geminiService';
-import { BatchQueueRequest } from '../types';
+import { BatchQueueRequest, VideoBatchQueueRequest } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { Button } from './ui/Button';
 
+// Combined type for queue items
+type QueueItem = (BatchQueueRequest & { isVideo?: false }) | (VideoBatchQueueRequest & { isVideo: true });
+
 export const QueuedRequestsPanel: React.FC = () => {
-  const [queuedRequests, setQueuedRequests] = useState<BatchQueueRequest[]>([]);
+  const [queuedRequests, setQueuedRequests] = useState<QueueItem[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { setCanvasImage, setCanvasImages, setCanvasZoom, setCanvasPan } = useAppStore();
+  const { setCanvasImage, setCanvasImages, setCanvasZoom, setCanvasPan, setCanvasVideo } = useAppStore();
 
   // Helper to load image and reset canvas view
   const loadImageToCanvas = (base64Data: string | string[]) => {
+    // Clear video first so image shows
+    setCanvasVideo(null);
     // Reset zoom/pan so the new image is visible
     setCanvasZoom(1);
     setCanvasPan({ x: 0, y: 0 });
@@ -26,19 +31,79 @@ export const QueuedRequestsPanel: React.FC = () => {
     }
   };
 
+  // Helper to load video to canvas
+  const loadVideoToCanvas = (base64Data: string) => {
+    // Clear image first so video shows
+    setCanvasImage(null);
+    setCanvasVideo(`data:video/mp4;base64,${base64Data}`);
+  };
+
   const loadQueuedRequests = async () => {
-    const requests = await CacheService.getAllQueuedRequests();
-    setQueuedRequests(requests);
+    const imageRequests = await CacheService.getAllQueuedRequests();
+    const videoRequests = await CacheService.getAllVideoQueuedRequests();
+
+    // Combine and mark video requests
+    const combinedRequests: QueueItem[] = [
+      ...imageRequests.map(r => ({ ...r, isVideo: false as const })),
+      ...videoRequests.map(r => ({ ...r, isVideo: true as const }))
+    ];
+
+    // Sort by creation time, newest first
+    combinedRequests.sort((a, b) => b.createdAt - a.createdAt);
+    setQueuedRequests(combinedRequests);
   };
 
   useEffect(() => {
     loadQueuedRequests();
   }, []);
 
-  const handleSelectRequest = async (request: BatchQueueRequest) => {
+  const handleSelectRequest = async (request: QueueItem) => {
     setSelectedRequestId(request.id);
 
-    // Always fetch fresh data from cache first
+    // Handle video requests
+    if (request.isVideo) {
+      const freshRequest = await CacheService.getVideoQueuedRequest(request.id);
+      if (!freshRequest) return;
+
+      // If already succeeded, load the result
+      if (freshRequest.status === 'succeeded' && freshRequest.resultVideo) {
+        console.log('Loading cached video result');
+        loadVideoToCanvas(freshRequest.resultVideo);
+        return;
+      }
+
+      // Video operations use operation polling, not batch jobs
+      // The video generation hook handles polling, so we just load what's available
+      if (freshRequest.status === 'processing' && freshRequest.operationName) {
+        try {
+          const status = await geminiService.getVideoOperationStatus(freshRequest.operationName);
+
+          if (status.state === 'SUCCEEDED') {
+            const result = await geminiService.getVideoOperationResult(freshRequest.operationName);
+
+            await CacheService.updateVideoQueuedRequest(freshRequest.id, {
+              status: 'succeeded',
+              resultVideo: result.video,
+              completedAt: Date.now()
+            });
+
+            loadVideoToCanvas(result.video);
+            loadQueuedRequests();
+          } else if (status.state === 'FAILED') {
+            await CacheService.updateVideoQueuedRequest(freshRequest.id, {
+              status: 'failed',
+              error: status.error || 'Video generation failed'
+            });
+            loadQueuedRequests();
+          }
+        } catch (error) {
+          console.error('Error checking video operation status:', error);
+        }
+      }
+      return;
+    }
+
+    // Handle image requests
     const freshRequest = await CacheService.getQueuedRequest(request.id);
     if (!freshRequest) return;
 
@@ -56,7 +121,7 @@ export const QueuedRequestsPanel: React.FC = () => {
 
         if (state === 'JOB_STATE_SUCCEEDED') {
           const images = await geminiService.getBatchResults(freshRequest.batchJobName);
-          
+
           await CacheService.updateQueuedRequest(freshRequest.id, {
             status: 'succeeded',
             resultImages: images,
@@ -84,8 +149,35 @@ export const QueuedRequestsPanel: React.FC = () => {
 
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
-    
+
     for (const request of queuedRequests) {
+      // Handle video requests
+      if (request.isVideo) {
+        if ((request.status === 'submitted' || request.status === 'processing') && request.operationName) {
+          try {
+            const status = await geminiService.getVideoOperationStatus(request.operationName);
+
+            if (status.state === 'SUCCEEDED') {
+              const result = await geminiService.getVideoOperationResult(request.operationName);
+              await CacheService.updateVideoQueuedRequest(request.id, {
+                status: 'succeeded',
+                resultVideo: result.video,
+                completedAt: Date.now()
+              });
+            } else if (status.state === 'FAILED') {
+              await CacheService.updateVideoQueuedRequest(request.id, {
+                status: 'failed',
+                error: status.error || 'Video generation failed'
+              });
+            }
+          } catch (error) {
+            console.error('Error checking video operation status:', error);
+          }
+        }
+        continue;
+      }
+
+      // Handle image requests
       if (request.status === 'submitted' && request.batchJobName) {
         try {
           const { state } = await geminiService.getBatchStatus(request.batchJobName);
@@ -113,9 +205,13 @@ export const QueuedRequestsPanel: React.FC = () => {
     setIsRefreshing(false);
   };
 
-  const handleDeleteRequest = async (id: string, e: React.MouseEvent) => {
+  const handleDeleteRequest = async (id: string, isVideo: boolean, e: React.MouseEvent) => {
     e.stopPropagation();
-    await CacheService.deleteQueuedRequest(id);
+    if (isVideo) {
+      await CacheService.deleteVideoQueuedRequest(id);
+    } else {
+      await CacheService.deleteQueuedRequest(id);
+    }
     loadQueuedRequests();
     if (selectedRequestId === id) {
       setSelectedRequestId(null);
@@ -161,17 +257,27 @@ export const QueuedRequestsPanel: React.FC = () => {
       minute: '2-digit'
     });
 
-  const renderTypeChip = (type: BatchQueueRequest['type']) => {
+  const renderTypeChip = (request: QueueItem) => {
     const baseClasses =
-      'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border';
+      'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border gap-1';
+
+    if (request.isVideo) {
+      return (
+        <span className={`${baseClasses} bg-purple-500/10 text-purple-200 border-purple-400/30`}>
+          <Video className="w-3 h-3" />
+          Video
+        </span>
+      );
+    }
+
     const variantClasses =
-      type === 'generate'
+      request.type === 'generate'
         ? 'bg-yellow-500/10 text-yellow-200 border-yellow-400/30'
         : 'bg-blue-500/10 text-blue-200 border-blue-400/30';
 
     return (
       <span className={`${baseClasses} ${variantClasses}`}>
-        {type === 'generate' ? 'Generate' : 'Edit'}
+        {request.type === 'generate' ? 'Generate' : 'Edit'}
       </span>
     );
   };
@@ -210,7 +316,9 @@ export const QueuedRequestsPanel: React.FC = () => {
               className={cn(
                 'p-3 rounded-lg border cursor-pointer transition-all duration-200',
                 selectedRequestId === request.id
-                  ? 'bg-yellow-400/10 border-yellow-400/50'
+                  ? request.isVideo
+                    ? 'bg-purple-400/10 border-purple-400/50'
+                    : 'bg-yellow-400/10 border-yellow-400/50'
                   : 'bg-gray-900 border-gray-700 hover:border-gray-600'
               )}
             >
@@ -220,6 +328,9 @@ export const QueuedRequestsPanel: React.FC = () => {
                   {getStatusIcon(request.status)}
                   <span className="text-xs text-gray-400">
                     {getStatusText(request.status)}
+                    {request.isVideo && request.status === 'processing' && request.progressPercent !== undefined && (
+                      <span className="ml-1 text-purple-400">{Math.round(request.progressPercent * 100)}%</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -231,7 +342,7 @@ export const QueuedRequestsPanel: React.FC = () => {
                     <Copy className="h-3 w-3" />
                   </button>
                   <button
-                    onClick={(e) => handleDeleteRequest(request.id, e)}
+                    onClick={(e) => handleDeleteRequest(request.id, !!request.isVideo, e)}
                     className="text-gray-500 hover:text-red-400 transition-colors"
                     title="Delete"
                   >
@@ -245,22 +356,46 @@ export const QueuedRequestsPanel: React.FC = () => {
                 {request.prompt}
               </p>
 
-              {/* Variant / image count */}
+              {/* Variant / image count or video info */}
               <div className="flex justify-between items-center text-[11px] text-gray-500 mb-2">
-                <span>
-                  Images: {request.resultImages ? `${request.resultImages.length}/${request.variantCount ?? 1}` : (request.variantCount ?? 1)}
-                </span>
-                {renderTypeChip(request.type)}
+                {request.isVideo ? (
+                  <span>
+                    {request.durationSeconds}s • {request.aspectRatio} • {request.resolution}
+                  </span>
+                ) : (
+                  <span>
+                    Images: {request.resultImages ? `${request.resultImages.length}/${request.variantCount ?? 1}` : (request.variantCount ?? 1)}
+                  </span>
+                )}
+                {renderTypeChip(request)}
               </div>
 
-              {/* Result Preview */}
-              {request.status === 'succeeded' && request.resultImages?.[0] && (
+              {/* Result Preview - Image */}
+              {!request.isVideo && request.status === 'succeeded' && request.resultImages?.[0] && (
                 <div className="mt-2">
                   <img
                     src={`data:image/png;base64,${request.resultImages[0]}`}
                     alt="Result"
                     className="w-full h-20 object-cover rounded border border-gray-700"
                   />
+                </div>
+              )}
+
+              {/* Result Preview - Video */}
+              {request.isVideo && request.status === 'succeeded' && request.resultVideo && (
+                <div className="mt-2 relative">
+                  <video
+                    src={`data:video/mp4;base64,${request.resultVideo}`}
+                    className="w-full h-20 object-cover rounded border border-purple-700"
+                    muted
+                    playsInline
+                    preload="metadata"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/80 flex items-center justify-center">
+                      <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+                    </div>
+                  </div>
                 </div>
               )}
 

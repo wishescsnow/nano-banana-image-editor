@@ -1,5 +1,18 @@
-import { AspectRatio, ResolutionTier, SafetySetting } from '../types';
-import { apiService } from './apiService';
+import {
+  AspectRatio,
+  ResolutionTier,
+  SafetySetting,
+  VideoAspectRatio,
+  VideoResolution,
+  VideoDuration,
+  VideoModel,
+  GenerateRequest,
+  EditRequest,
+  SegmentRequest,
+  SegmentResponse,
+  DEFAULT_SAFETY_SETTINGS,
+} from '../types';
+import { apiService, VideoGenerateRequest, VideoOperationStatus, VideoResult } from './apiService';
 
 export const MODEL_OPTIONS = [
   { name: 'Nano Banana Pro', model: 'gemini-3-pro-image-preview' },
@@ -10,13 +23,8 @@ export const DEFAULT_MODEL = MODEL_OPTIONS[0].model;
 export const DEFAULT_ASPECT_RATIO: AspectRatio = 'auto';
 export const DEFAULT_RESOLUTION_TIER: ResolutionTier = '1K';
 
-export const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [
-  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_LOW_AND_ABOVE' },
-];
+// Re-export DEFAULT_SAFETY_SETTINGS for backward compatibility
+export { DEFAULT_SAFETY_SETTINGS };
 
 export const ASPECT_RATIOS: AspectRatio[] = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9'];
 export const RESOLUTION_TIERS: ResolutionTier[] = ['1K', '2K', '4K'];
@@ -77,46 +85,29 @@ export const MODEL_RESOLUTIONS: Record<string, ResolutionMap> = {
   'gemini-2.5-flash-image': FLASH_RESOLUTIONS,
 };
 
-export interface GenerationRequest {
-  prompt: string;
-  referenceImages?: string[]; // base64 array
-  temperature?: number;
-  seed?: number;
-  variantCount?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
+// Video generation constants
+export const VIDEO_MODEL_OPTIONS: { name: string; model: VideoModel }[] = [
+  { name: 'Veo 3.1', model: 'veo-3.1-generate-preview' },
+  { name: 'Veo 3.1 Fast', model: 'veo-3.1-fast-generate-preview' },
+  { name: 'Veo 3.0', model: 'veo-3.0-generate-001' },
+  { name: 'Veo 3.0 Fast', model: 'veo-3.0-fast-generate-001' },
+];
 
-export interface EditRequest {
-  instruction: string;
-  originalImage: string; // base64
-  referenceImages?: string[]; // base64 array
-  maskImage?: string; // base64
-  temperature?: number;
-  seed?: number;
-  variantCount?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
+export const DEFAULT_VIDEO_MODEL: VideoModel = 'veo-3.0-generate-001';
+export const DEFAULT_VIDEO_ASPECT_RATIO: VideoAspectRatio = '16:9';
+export const DEFAULT_VIDEO_RESOLUTION: VideoResolution = '720p';
+export const DEFAULT_VIDEO_DURATION: VideoDuration = 4;
 
-export interface SegmentationRequest {
-  query: string; // "the object at pixel (x,y)" or "the red car"
-  image?: string; // base64
-  maskImage?: string; // base64
-  temperature?: number;
-  seed?: number;
-  model?: string;
-  safetySettings?: SafetySetting[];
-  aspectRatio?: AspectRatio;
-  resolutionTier?: ResolutionTier;
-}
+export const VIDEO_ASPECT_RATIOS: VideoAspectRatio[] = ['16:9', '9:16'];
+export const VIDEO_RESOLUTIONS: VideoResolution[] = ['720p', '1080p'];
+export const VIDEO_DURATIONS: VideoDuration[] = [4, 6, 8];
+
+// Type aliases for backward compatibility
+export type GenerationRequest = GenerateRequest;
+export type SegmentationRequest = SegmentRequest;
 
 export class GeminiService {
-  async generateImage(request: GenerationRequest): Promise<string[]> {
+  async generateImage(request: GenerateRequest): Promise<string[]> {
     try {
       const response = await apiService.generateImage({
         prompt: request.prompt,
@@ -158,7 +149,7 @@ export class GeminiService {
     }
   }
 
-  async segmentImage(request: SegmentationRequest): Promise<any> {
+  async segmentImage(request: SegmentRequest): Promise<SegmentResponse> {
     try {
       return await apiService.segmentImage({
         query: request.query,
@@ -258,6 +249,44 @@ export class GeminiService {
       throw new Error('Failed to submit batch segmentation request. Please try again.');
     }
   }
+
+  // Video generation methods
+  async generateVideo(request: VideoGenerateRequest): Promise<{ operationName: string; model: string }> {
+    try {
+      return await apiService.generateVideo({
+        ...request,
+        model: request.model ?? DEFAULT_VIDEO_MODEL,
+        aspectRatio: request.aspectRatio ?? DEFAULT_VIDEO_ASPECT_RATIO,
+        resolution: request.resolution ?? DEFAULT_VIDEO_RESOLUTION,
+        durationSeconds: request.durationSeconds ?? DEFAULT_VIDEO_DURATION,
+      });
+    } catch (error) {
+      console.error('Error generating video:', error);
+      throw new Error('Failed to start video generation. Please try again.');
+    }
+  }
+
+  async getVideoOperationStatus(operationName: string): Promise<VideoOperationStatus> {
+    try {
+      return await apiService.getVideoOperationStatus(operationName);
+    } catch (error) {
+      console.error('Error getting video operation status:', error);
+      throw new Error('Failed to get video operation status.');
+    }
+  }
+
+  async getVideoOperationResult(operationName: string): Promise<VideoResult> {
+    try {
+      return await apiService.getVideoOperationResult(operationName);
+    } catch (error) {
+      console.error('Error getting video result:', error);
+      throw new Error('Failed to get video result.');
+    }
+  }
+
+  // Note: Video generation does not support batch API like images do.
+  // Video generation is inherently async - use generateVideo() and poll with
+  // getVideoOperationStatus() / getVideoOperationResult().
 }
 
 export const geminiService = new GeminiService();

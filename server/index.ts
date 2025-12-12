@@ -21,6 +21,14 @@ const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
 // Constants
 const DEFAULT_MODEL = 'gemini-3-pro-image-preview';
+const DEFAULT_VIDEO_MODEL = 'veo-3.0-generate-001';
+
+const VIDEO_MODELS = [
+  'veo-3.1-generate-preview',
+  'veo-3.1-fast-generate-preview',
+  'veo-3.0-generate-001',
+  'veo-3.0-fast-generate-001'
+] as const;
 
 const DEFAULT_SAFETY_SETTINGS = [
   { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
@@ -535,6 +543,267 @@ app.get('/api/batch/:name/results', async (req, res) => {
     res.status(500).json({ error: error.message || 'Failed to get batch results' });
   }
 });
+
+// ============================================
+// VIDEO GENERATION ENDPOINTS (Veo)
+// ============================================
+
+// POST /api/video/generate - Start video generation (returns operation name for polling)
+app.post('/api/video/generate', async (req, res) => {
+  try {
+    const {
+      prompt,
+      negativePrompt,
+      model,
+      aspectRatio,
+      resolution,
+      durationSeconds,
+      image,          // base64 - first frame
+      lastFrame,      // base64 - last frame
+      referenceImages, // base64[] - up to 3 style references
+      video,          // base64 - for video extension
+      seed
+    } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Build video generation config (for settings like aspectRatio, resolution, etc.)
+    const config: Record<string, unknown> = {};
+
+    // Check if this is interpolation mode (both first and last frame)
+    const isInterpolationMode = image && lastFrame;
+
+    if (negativePrompt) config.negativePrompt = negativePrompt;
+    if (aspectRatio) config.aspectRatio = aspectRatio;
+
+    // Duration and resolution are NOT allowed in interpolation mode
+    if (!isInterpolationMode) {
+      if (resolution) config.resolution = resolution;
+      if (durationSeconds) config.durationSeconds = durationSeconds;
+    }
+
+    if (seed !== undefined) config.seed = seed;
+
+    // Build the generateVideos request params
+    // Note: image, video are TOP-LEVEL params, lastFrame goes in config
+    const generateParams: Record<string, unknown> = {
+      model: model && VIDEO_MODELS.includes(model) ? model : DEFAULT_VIDEO_MODEL,
+      prompt,
+    };
+
+    // Add config if we have any settings
+    if (Object.keys(config).length > 0) {
+      generateParams.config = config;
+    }
+
+    // Add first frame image (image-to-video) - TOP LEVEL param
+    if (image) {
+      generateParams.image = {
+        imageBytes: image,
+        mimeType: 'image/png'
+      };
+    }
+
+    // Add last frame image (interpolation mode) - INSIDE CONFIG
+    if (lastFrame) {
+      console.log('Interpolation mode:', isInterpolationMode);
+      config.lastFrame = {
+        imageBytes: lastFrame,
+        mimeType: 'image/png'
+      };
+      generateParams.config = config;
+    }
+
+    // Add reference images (up to 3) - TOP LEVEL param
+    if (referenceImages && referenceImages.length > 0) {
+      generateParams.referenceImages = referenceImages.slice(0, 3).map((img: string) => ({
+        referenceImage: {
+          imageBytes: img,
+          mimeType: 'image/png'
+        },
+        referenceType: 'REFERENCE_TYPE_STYLE'
+      }));
+    }
+
+    // Add source video for extension - TOP LEVEL param
+    if (video) {
+      generateParams.video = {
+        videoBytes: video,
+        mimeType: 'video/mp4'
+      };
+    }
+
+    // Log the params (without image bytes for brevity)
+    const paramsForLog = { ...generateParams };
+    if (paramsForLog.image) paramsForLog.image = { ...(generateParams.image as any), imageBytes: `[${(generateParams.image as any).imageBytes.length} chars]` };
+    if (paramsForLog.config && (paramsForLog.config as any).lastFrame) {
+      paramsForLog.config = { ...(paramsForLog.config as any), lastFrame: { ...((paramsForLog.config as any).lastFrame), imageBytes: `[${((paramsForLog.config as any).lastFrame).imageBytes.length} chars]` } };
+    }
+
+    // Call Veo API - returns long-running operation
+    const operation = await genAI.models.generateVideos(generateParams as any);
+
+    res.json({
+      operationName: operation.name,
+      model: generateParams.model as string
+    });
+  } catch (error: any) {
+    console.error('Error in /api/video/generate:', error);
+    res.status(500).json({ error: error.message || 'Failed to start video generation' });
+  }
+});
+
+// GET /api/video/operation/status - Poll video operation status
+// Operation name passed as query param to handle names with slashes
+// Uses REST API directly since SDK requires full operation object which can't be serialized
+app.get('/api/video/operation/status', async (req, res) => {
+  try {
+    const operationName = req.query.name as string;
+
+    if (!operationName) {
+      return res.status(400).json({ error: 'Operation name is required' });
+    }
+
+    // Poll operation status using REST API directly
+    // The SDK's getVideosOperation requires the full operation object with internal methods,
+    // which we can't reconstruct from just the name string
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${API_KEY}`;
+    const apiResponse = await fetch(apiUrl);
+
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `API request failed with status ${apiResponse.status}`);
+    }
+
+    const operation = await apiResponse.json();
+
+    const response: {
+      done: boolean;
+      state: string;
+      error?: string;
+      progress?: number;
+    } = {
+      done: operation.done ?? false,
+      state: operation.done
+        ? (operation.error ? 'FAILED' : 'SUCCEEDED')
+        : 'RUNNING'
+    };
+
+    if (operation.error) {
+      response.error = operation.error.message || 'Video generation failed';
+    }
+
+    // Include progress metadata if available
+    const metadata = operation.metadata;
+    if (metadata?.progress) {
+      response.progress = metadata.progress;
+    }
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error in /api/video/operation/status:', error);
+    res.status(500).json({ error: error.message || 'Failed to get operation status' });
+  }
+});
+
+// GET /api/video/operation/result - Get completed video as base64
+// Operation name passed as query param to handle names with slashes
+// Uses REST API directly since SDK requires full operation object
+app.get('/api/video/operation/result', async (req, res) => {
+  try {
+    const operationName = req.query.name as string;
+
+    if (!operationName) {
+      return res.status(400).json({ error: 'Operation name is required' });
+    }
+
+    // First verify operation is complete using REST API
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/${operationName}?key=${API_KEY}`;
+    const apiResponse = await fetch(apiUrl);
+
+    if (!apiResponse.ok) {
+      const errorData = await apiResponse.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || `API request failed with status ${apiResponse.status}`);
+    }
+
+    const operation = await apiResponse.json();
+
+    if (!operation.done) {
+      return res.status(400).json({
+        error: 'Video generation not complete',
+        state: 'RUNNING'
+      });
+    }
+
+    if (operation.error) {
+      return res.status(400).json({
+        error: operation.error.message || 'Video generation failed',
+        state: 'FAILED'
+      });
+    }
+
+    // Get the video from the response
+    // The REST API response structure differs from SDK - check both possible formats
+    const response = operation.response;
+    const generatedVideos = response?.generateVideoResponse?.generatedSamples ||
+      response?.generatedVideos ||
+      response?.videos;
+
+    if (!generatedVideos || generatedVideos.length === 0) {
+      return res.status(404).json({ error: 'No video generated' });
+    }
+
+    const videoData = generatedVideos[0].video || generatedVideos[0];
+
+    // Check if video has URI (needs download) or base64 data
+    if (videoData.uri) {
+      // Download video from URI directly via fetch
+      // URI may already have query params (e.g., ?alt=media), so use & if needed
+      const separator = videoData.uri.includes('?') ? '&' : '?';
+      const downloadUrl = `${videoData.uri}${separator}key=${API_KEY}`;
+      console.log('Downloading video from URI:', downloadUrl);
+      const videoResponse = await fetch(downloadUrl);
+
+      if (!videoResponse.ok) {
+        throw new Error(`Failed to download video: ${videoResponse.status}`);
+      }
+
+      const videoBuffer = await videoResponse.arrayBuffer();
+      const base64Video = Buffer.from(videoBuffer).toString('base64');
+
+      res.json({
+        video: base64Video,
+        mimeType: videoData.mimeType || videoData.encoding || 'video/mp4',
+        durationSeconds: videoData.duration || 0,
+        width: videoData.width || 1920,
+        height: videoData.height || 1080
+      });
+    } else if (videoData.encodedVideo || videoData.videoBytes) {
+      // Video is already base64 encoded
+      res.json({
+        video: videoData.encodedVideo || videoData.videoBytes,
+        mimeType: videoData.mimeType || videoData.encoding || 'video/mp4',
+        durationSeconds: videoData.duration || 0,
+        width: videoData.width || 1920,
+        height: videoData.height || 1080
+      });
+    } else {
+      console.error('Unexpected video response format:', JSON.stringify(videoData, null, 2));
+      console.error('Full response:', JSON.stringify(response, null, 2));
+      return res.status(500).json({ error: 'Unexpected video response format' });
+    }
+  } catch (error: any) {
+    console.error('Error in /api/video/operation/result:', error);
+    res.status(500).json({ error: error.message || 'Failed to retrieve video' });
+  }
+});
+
+// Note: Video generation does not support the Batch API like images do.
+// Video generation is inherently async - you start a generation and poll for completion.
+// The frontend "queue" for video uses the regular /api/video/generate endpoint
+// and tracks progress in the queue panel.
 
 app.listen(PORT, () => {
   console.log(`API server running on http://localhost:${PORT}`);

@@ -1,14 +1,22 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { Project, Generation, Edit, SegmentationMask, BrushStroke, SafetySetting, HarmCategory, AspectRatio, ResolutionTier } from '../types';
-
-const DEFAULT_SAFETY_SETTINGS: SafetySetting[] = [
-  { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_LOW_AND_ABOVE' },
-  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_LOW_AND_ABOVE' },
-];
+import {
+  Project,
+  Generation,
+  Edit,
+  SegmentationMask,
+  BrushStroke,
+  SafetySetting,
+  HarmCategory,
+  AspectRatio,
+  ResolutionTier,
+  VideoGeneration,
+  VideoModel,
+  VideoAspectRatio,
+  VideoResolution,
+  VideoDuration,
+  DEFAULT_SAFETY_SETTINGS,
+} from '../types';
 
 interface AppState {
   // Current project
@@ -50,7 +58,28 @@ interface AppState {
   showPromptPanel: boolean;
 
   // UI state
-  selectedTool: 'generate' | 'edit' | 'mask';
+  selectedTool: 'generate' | 'edit' | 'mask' | 'video';
+
+  // Video canvas state
+  canvasVideo: string | null;
+  canvasVideoThumbnail: string | null;
+  isVideoPlaying: boolean;
+  videoCurrentTime: number;
+  videoDuration: number;
+  videoMuted: boolean;
+
+  // Video generation settings
+  videoModel: VideoModel;
+  videoAspectRatio: VideoAspectRatio;
+  videoResolution: VideoResolution;
+  videoDurationSetting: VideoDuration;
+  videoStartFrame: string | null;
+  videoLastFrame: string | null;
+  videoSourceVideo: string | null; // For video extension
+  videoNegativePrompt: string;
+
+  // Video history
+  selectedVideoGenerationId: string | null;
 
   // Actions
   setCurrentProject: (project: Project | null) => void;
@@ -92,7 +121,28 @@ interface AppState {
 
   setShowPromptPanel: (show: boolean) => void;
 
-  setSelectedTool: (tool: 'generate' | 'edit' | 'mask') => void;
+  setSelectedTool: (tool: 'generate' | 'edit' | 'mask' | 'video') => void;
+
+  // Video actions
+  setCanvasVideo: (url: string | null) => void;
+  setCanvasVideoThumbnail: (url: string | null) => void;
+  setIsVideoPlaying: (playing: boolean) => void;
+  setVideoCurrentTime: (time: number) => void;
+  setVideoDuration: (duration: number) => void;
+  setVideoMuted: (muted: boolean) => void;
+
+  setVideoModel: (model: VideoModel) => void;
+  setVideoAspectRatio: (ratio: VideoAspectRatio) => void;
+  setVideoResolution: (resolution: VideoResolution) => void;
+  setVideoDurationSetting: (duration: VideoDuration) => void;
+  setVideoStartFrame: (frame: string | null) => void;
+  setVideoLastFrame: (frame: string | null) => void;
+  setVideoSourceVideo: (video: string | null) => void;
+  setVideoNegativePrompt: (prompt: string) => void;
+
+  addVideoGeneration: (generation: VideoGeneration) => void;
+  selectVideoGeneration: (id: string | null) => void;
+  clearVideoSession: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -130,6 +180,27 @@ export const useAppStore = create<AppState>()(
       showPromptPanel: true,
 
       selectedTool: 'generate',
+
+      // Video canvas state
+      canvasVideo: null,
+      canvasVideoThumbnail: null,
+      isVideoPlaying: false,
+      videoCurrentTime: 0,
+      videoDuration: 0,
+      videoMuted: false,
+
+      // Video generation settings
+      videoModel: 'veo-3.0-generate-001',
+      videoAspectRatio: '16:9',
+      videoResolution: '720p',
+      videoDurationSetting: 4,
+      videoStartFrame: null,
+      videoLastFrame: null,
+      videoSourceVideo: null,
+      videoNegativePrompt: '',
+
+      // Video history
+      selectedVideoGenerationId: null,
 
       // Actions
       setCurrentProject: (project) => set({ currentProject: project }),
@@ -219,6 +290,50 @@ export const useAppStore = create<AppState>()(
       setShowPromptPanel: (show) => set({ showPromptPanel: show }),
 
       setSelectedTool: (tool) => set({ selectedTool: tool }),
+
+      // Video actions
+      setCanvasVideo: (url) => set({
+        canvasVideo: url,
+        isVideoPlaying: false,
+        videoCurrentTime: 0
+      }),
+      setCanvasVideoThumbnail: (url) => set({ canvasVideoThumbnail: url }),
+      setIsVideoPlaying: (playing) => set({ isVideoPlaying: playing }),
+      setVideoCurrentTime: (time) => set({ videoCurrentTime: time }),
+      setVideoDuration: (duration) => set({ videoDuration: duration }),
+      setVideoMuted: (muted) => set({ videoMuted: muted }),
+
+      setVideoModel: (model) => set({ videoModel: model }),
+      setVideoAspectRatio: (ratio) => set({ videoAspectRatio: ratio }),
+      setVideoResolution: (resolution) => set({ videoResolution: resolution }),
+      setVideoDurationSetting: (duration) => set({ videoDurationSetting: duration }),
+      setVideoStartFrame: (frame) => set({ videoStartFrame: frame }),
+      setVideoLastFrame: (frame) => set({ videoLastFrame: frame }),
+      setVideoSourceVideo: (video) => set({ videoSourceVideo: video }),
+      setVideoNegativePrompt: (prompt) => set({ videoNegativePrompt: prompt }),
+
+      addVideoGeneration: (generation) => set((state) => ({
+        currentProject: state.currentProject ? {
+          ...state.currentProject,
+          videoGenerations: [...(state.currentProject.videoGenerations || []), generation],
+          updatedAt: Date.now()
+        } : null
+      })),
+
+      selectVideoGeneration: (id) => set({ selectedVideoGenerationId: id }),
+
+      clearVideoSession: () => set({
+        canvasVideo: null,
+        canvasVideoThumbnail: null,
+        isVideoPlaying: false,
+        videoCurrentTime: 0,
+        videoDuration: 0,
+        videoStartFrame: null,
+        videoLastFrame: null,
+        videoSourceVideo: null,
+        videoNegativePrompt: '',
+        videoMuted: false,
+      }),
     }),
     { name: 'nano-banana-store' }
   )
